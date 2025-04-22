@@ -41,7 +41,7 @@ O **Vocational Test** é uma aplicação web inteligente desenvolvida para auxil
 ### Amanda de Mello Ferreira  
 
 📧 amanda-6575890@educar.rs.gov.br 
-🔗 [GitHub](amandamferreira)
+🔗 [GitHub](https://github.com/amandamferreira)
 
 ---
 
