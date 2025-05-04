@@ -32,7 +32,14 @@ O **Vocational Test** é uma aplicação web inteligente desenvolvida para auxil
 
 ---
 
-## 📁 Estrutura do Projeto (MVC)
+## 🚀 Como Rodar o Projeto
+
+Para iniciar o frontend do projeto localmente, siga os passos abaixo no terminal:
+
+```bash
+cd frontend
+npm install     # Apenas na primeira vez, para instalar as dependências
+npm run dev
 
 ---
 
