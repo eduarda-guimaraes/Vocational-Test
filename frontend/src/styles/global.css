@@ -4,6 +4,10 @@
     box-sizing: border-box;
 }
 
+.header-spacing {
+  margin-top: 130px;
+}
+
 .navbar {
     z-index: 1030; /* Garante que fique acima de outros elementos */
     background-color: #ffffff !important; /* Cor de fundo consistente */

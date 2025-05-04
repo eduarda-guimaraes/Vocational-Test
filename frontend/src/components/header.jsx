@@ -1,4 +1,4 @@
-import React from 'react';
+import React from 'react'; 
 import { Link } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '../styles/global.css';
@@ -17,7 +17,20 @@ function Header() {
             <Link className="nav-link mx-3" to="/">Home</Link>
             <Link className="nav-link mx-3" to="/chat">Chat</Link>
             <Link className="nav-link mx-3" to="/perfil">
-              <img src="/iconevazio.png" alt="Ícone de cadastro" width="85" height="85" />
+              {/* Ícone de perfil */}
+              <div
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  backgroundColor: '#e0e0e0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <i className="bi bi-person" style={{ fontSize: '24px' }}></i>
+              </div>
             </Link>
           </div>
         </div>

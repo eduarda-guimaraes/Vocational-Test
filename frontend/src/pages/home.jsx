@@ -8,11 +8,11 @@ import { Link } from 'react-router-dom';
 function Home() {
   return (
     <>
-      <Header />
+     <Header />
 
-      <div style={{ height: '100px' }} />
+    <div style={{ height: '20px' }} />
 
-      <div className="container-fluid p-0" style={{ paddingTop: '100px' }}>
+    <div className="container-fluid p-0" style={{ paddingTop: '40px' }}>
         
         <div className="card w-100 m-0 rounded-0" style={{ backgroundColor: '#447eb8', height: '300px' }}>
           <div className="card-body d-flex flex-column align-items-center justify-content-center text-white">
