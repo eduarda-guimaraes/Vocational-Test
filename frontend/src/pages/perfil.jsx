@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from '../components/header';
 import '../styles/global.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -13,8 +13,14 @@ function Perfil() {
     senha: '********',
   });
 
-  // Estado para edição temporária
   const [editData, setEditData] = useState({ ...userData });
+  const [historico, setHistorico] = useState([]);
+
+  // Carrega o histórico do localStorage ao abrir o componente
+  useEffect(() => {
+    const dadosSalvos = JSON.parse(localStorage.getItem('historico')) || [];
+    setHistorico(dadosSalvos);
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -34,21 +40,10 @@ function Perfil() {
           <div className="mb-3"><strong>Nome:</strong> {userData.nome}</div>
           <div className="mb-3"><strong>Email:</strong> {userData.email}</div>
           <div className="mb-4"><strong>Senha:</strong> {userData.senha}</div>
-          <button
-            className="btn w-100 mb-3"
-            style={{ backgroundColor: '#447EB8', color: '#fff' }}
-            onClick={() => {
-              setEditData(userData);
-              setView('editar');
-            }}
-          >
+          <button className="btn w-100 mb-3" style={{ backgroundColor: '#447EB8', color: '#fff' }} onClick={() => { setEditData(userData); setView('editar'); }}>
             Editar Informações
           </button>
-          <button
-            className="btn w-100"
-            style={{ backgroundColor: '#447EB8', color: '#fff' }}
-            onClick={() => setView('perfil')}
-          >
+          <button className="btn w-100" style={{ backgroundColor: '#447EB8', color: '#fff' }} onClick={() => setView('perfil')}>
             Voltar
           </button>
         </div>
@@ -60,40 +55,17 @@ function Perfil() {
           <form>
             <div className="mb-3">
               <label className="form-label">Nome de Usuário</label>
-              <input
-                type="text"
-                name="nome"
-                className="form-control"
-                value={editData.nome}
-                onChange={handleChange}
-              />
+              <input type="text" name="nome" className="form-control" value={editData.nome} onChange={handleChange} />
             </div>
             <div className="mb-3">
               <label className="form-label">Email</label>
-              <input
-                type="email"
-                name="email"
-                className="form-control"
-                value={editData.email}
-                onChange={handleChange}
-              />
+              <input type="email" name="email" className="form-control" value={editData.email} onChange={handleChange} />
             </div>
             <div className="mb-3">
               <label className="form-label">Senha</label>
-              <input
-                type="password"
-                name="senha"
-                className="form-control"
-                value={editData.senha}
-                onChange={handleChange}
-              />
+              <input type="password" name="senha" className="form-control" value={editData.senha} onChange={handleChange} />
             </div>
-            <button
-              type="button"
-              className="btn w-100"
-              style={{ backgroundColor: '#447EB8', color: '#fff' }}
-              onClick={handleSave}
-            >
+            <button type="button" className="btn w-100" style={{ backgroundColor: '#447EB8', color: '#fff' }} onClick={handleSave}>
               Salvar e Voltar
             </button>
           </form>
@@ -101,14 +73,26 @@ function Perfil() {
       );
     } else if (view === 'historico') {
       return (
-        <div className="card p-4 shadow-sm mx-auto" style={{ maxWidth: '500px' }}>
-          <h5 className="card-title text-center">Histórico</h5>
-          <p className="text-muted text-center">Histórico de testes realizados aparecerá aqui.</p>
-          <button
-            className="btn w-100 mt-3"
-            style={{ backgroundColor: '#447EB8', color: '#fff' }}
-            onClick={() => setView('perfil')}
-          >
+        <div className="card p-4 shadow-sm mx-auto" style={{ maxWidth: '600px' }}>
+          <h5 className="card-title text-center">Histórico de Testes</h5>
+          {historico.length === 0 ? (
+            <p className="text-muted text-center">Nenhum teste realizado ainda.</p>
+          ) : (
+            <ul className="list-group">
+              {historico.map((item, index) => (
+                <li key={index} className="list-group-item">
+                  <strong>Respostas:</strong>
+                  <ul>
+                    {item.respostas.map((r, i) => (
+                      <li key={i}>{r}</li>
+                    ))}
+                  </ul>
+                  <strong>Resultado:</strong> {item.resultado}
+                </li>
+              ))}
+            </ul>
+          )}
+          <button className="btn w-100 mt-3" style={{ backgroundColor: '#447EB8', color: '#fff' }} onClick={() => setView('perfil')}>
             Voltar
           </button>
         </div>
@@ -118,18 +102,10 @@ function Perfil() {
     return (
       <div className="card p-4 shadow-sm mx-auto" style={{ maxWidth: '500px' }}>
         <h5 className="card-title text-center mb-4">Olá, {userData.nome}!</h5>
-        <button
-          className="btn w-100 mb-3"
-          style={{ backgroundColor: '#447EB8', color: '#fff' }}
-          onClick={() => setView('info')}
-        >
+        <button className="btn w-100 mb-3" style={{ backgroundColor: '#447EB8', color: '#fff' }} onClick={() => setView('info')}>
           Ver Informações Pessoais
         </button>
-        <button
-          className="btn w-100"
-          style={{ backgroundColor: '#447EB8', color: '#fff' }}
-          onClick={() => setView('historico')}
-        >
+        <button className="btn w-100" style={{ backgroundColor: '#447EB8', color: '#fff' }} onClick={() => setView('historico')}>
           Histórico de Testes
         </button>
       </div>

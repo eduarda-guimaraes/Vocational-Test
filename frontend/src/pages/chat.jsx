@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from '../components/header';
 import '../styles/global.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -9,26 +9,68 @@ function Chat() {
     { sender: 'bot', text: 'Olá! Vamos começar seu teste vocacional. Qual área você mais se identifica?' }
   ]);
   const [input, setInput] = useState('');
+  const [stage, setStage] = useState(0);
+  const [respostas, setRespostas] = useState([]);
+
+  // Limpar o histórico ao carregar a página
+  useEffect(() => {
+    localStorage.removeItem('historico');
+  }, []);
+
+  const perguntas = [
+    'Você se considera mais analítico ou criativo?',
+    'Prefere trabalhar em ambientes estruturados ou flexíveis?',
+    'Você gosta mais de trabalhar com pessoas ou com dados?',
+    'Você prefere liderança ou execução?',
+  ];
+
+  const resultados = {
+    tecnologia: 'Você pode se dar bem com carreiras como Análise de Sistemas ou Engenharia de Software.',
+    saude: 'Você pode gostar de áreas como Enfermagem, Medicina ou Psicologia.',
+    humanas: 'Você pode se interessar por Comunicação, Psicologia ou Direito.',
+    exatas: 'Você pode se identificar com Engenharia, Estatística ou Física.',
+    indefinido: 'Ainda não foi possível determinar sua área ideal, mas continue explorando!',
+  };
 
   const handleSend = () => {
     if (!input.trim()) return;
     const userMessage = { sender: 'user', text: input };
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
 
-    const botResponse = getStaticResponse(input);
-    setMessages(prev => [...prev, { sender: 'bot', text: botResponse }]);
+    const updatedRespostas = [...respostas, input];
+    setRespostas(updatedRespostas);
+
     setInput('');
+
+    setTimeout(() => {
+      if (stage < perguntas.length) {
+        setMessages((prev) => [...prev, { sender: 'bot', text: perguntas[stage] }]);
+        setStage(stage + 1);
+      } else {
+        const resultadoFinal = determinarResultado(updatedRespostas);
+        const mensagemFinal = resultados[resultadoFinal];
+
+        // Salvar no localStorage
+        const historicoAnterior = JSON.parse(localStorage.getItem('historico')) || [];
+        const novoHistorico = [...historicoAnterior, { respostas: updatedRespostas, resultado: mensagemFinal }];
+        localStorage.setItem('historico', JSON.stringify(novoHistorico));
+
+        setMessages((prev) => [
+          ...prev,
+          { sender: 'bot', text: 'Obrigado por responder! Aqui está seu resultado:' },
+          { sender: 'bot', text: mensagemFinal }
+        ]);
+      }
+    }, 600);
   };
 
-  const getStaticResponse = (input) => {
-    const lower = input.toLowerCase();
-    if (lower.includes('tecnologia')) {
-      return 'Você pode se dar bem com carreiras como Análise de Sistemas ou Engenharia de Software.';
-    } else if (lower.includes('saúde')) {
-      return 'Você pode gostar de áreas como Enfermagem, Medicina ou Psicologia.';
-    } else {
-      return 'Legal! Me diga mais sobre o que você gosta de fazer no dia a dia.';
-    }
+  const determinarResultado = (respostas) => {
+    const joined = respostas.join(' ').toLowerCase();
+    if (joined.includes('tecnologia')) return 'tecnologia';
+    if (joined.includes('saúde') || joined.includes('medicina') || joined.includes('enfermagem')) return 'saude';
+    if (joined.includes('pessoas') || joined.includes('comunicação')) return 'humanas';
+    if (joined.includes('dados') || joined.includes('números')) return 'exatas';
+    return 'indefinido';
   };
 
   const handleKeyPress = (e) => {
