@@ -1,11 +1,19 @@
 import React from 'react';
+import Header from '../components/header';
+import '../styles/global.css';
+import '../styles/form.css';
 
 function Perfil() {
   return (
-    <div>
-      <h1>Perfil</h1>
-      <p>Bem-vindo ao seu perfil. Aqui você pode gerenciar suas informações e configurações.</p>
-    </div>
+    <>
+      <Header />
+      <div style={{ height: '100px' }} />
+
+      <div className="container mt-5">
+        <h1>Seu Perfil</h1>
+        {/* Informações do perfil aqui */}
+      </div>
+    </>
   );
 }
 

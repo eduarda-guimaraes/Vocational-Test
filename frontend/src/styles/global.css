@@ -1,0 +1,54 @@
+*{
+    padding: 0%;
+    margin: 0%;
+    box-sizing: border-box;
+}
+
+.navbar {
+    z-index: 1030; /* Garante que fique acima de outros elementos */
+    background-color: #ffffff !important; /* Cor de fundo consistente */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Pequena sombra para destacar */
+  }  
+
+.text-justified {
+    text-align: justify;
+    text-indent: 2em; /* Adiciona um recuo no início do parágrafo */
+    hyphens: auto;  /* Permite a quebra de palavras, evitando grandes espaços */
+  }  
+
+  .nav-link {
+    position: relative;
+    text-decoration: none;
+  }
+  
+  .nav-link::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background-color: #4BB6C9;
+    transition: width 0.3s ease;
+  }
+  
+  .nav-link:hover::after {
+    width: 100%;
+  }
+  
+  .btn-iniciar-teste {
+    color: #000000;
+    background-color: #ffffff;
+    border-radius: 50px;
+    width: 30%;
+    height: 40px;
+    transition: all 0.3s ease;
+    font-weight: 500;
+  }
+  
+  .btn-iniciar-teste:hover {
+    background-color: #0097B2;
+    color: #ffffff;
+    transform: translateY(-2px);
+    
+  }
