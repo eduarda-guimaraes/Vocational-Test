@@ -40,6 +40,10 @@ Para iniciar o frontend do projeto localmente, siga os passos abaixo no terminal
 cd frontend
 npm install     # Apenas na primeira vez, para instalar as dependências
 npm run dev
+```
+Depois, abra o navegador e acesse:
+
+[http://localhost:3000/](http://localhost:3000/)
 
 ---
 
