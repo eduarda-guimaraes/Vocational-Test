@@ -25,8 +25,6 @@ function Home() {
         </nav>
       </header>
 
-      <img src="/banner.png" alt="banner demonstrativo" className="w-100" />
-
       <div className="container-fluid p-0">
         <div className="card w-100 m-0 rounded-0" style={{ backgroundColor: '#447eb8', height: '300px' }}>
           <div className="card-body d-flex flex-column align-items-center justify-content-center text-white">
@@ -37,11 +35,67 @@ function Home() {
         </div>
       </div>
 
+      <img src="/banner.png" alt="banner demonstrativo" className="w-100" />
+
       <div className="container my-5" id="scrollspyHeading3">
         <h3 className="text-center">Dúvidas Frequentes:</h3>
         <p className="text-center">Aqui estão algumas perguntas comuns sobre o Vocational Test:</p>
         <div className="accordion" id="accordionExample">
-          {/* Acordeões aqui */}
+          {[
+            {
+              id: 'One',
+              question: 'Como faço o teste vocacional?',
+              answer: 'Você pode começar o teste clicando no botão \'Iniciar Teste\' na página inicial.',
+              show: true,
+            },
+            {
+              id: 'Two',
+              question: 'O teste é gratuito?',
+              answer: 'Sim, o teste é totalmente gratuito.',
+            },
+            {
+              id: 'Three',
+              question: 'Quanto tempo leva para fazer o teste?',
+              answer: 'O teste é rápido e eficiente, levando em média 10 a 15 minutos para ser completado.',
+            },
+            {
+              id: 'Four',
+              question: 'Como são feitas as recomendações de carreiras?',
+              answer: 'As recomendações são feitas com base nas suas respostas durante o teste, levando em consideração suas habilidades, interesses e valores.',
+            },
+            {
+              id: 'Five',
+              question: 'Os resultados são confidenciais?',
+              answer: 'Sim, todos os resultados do teste são privados e serão utilizados apenas para gerar suas recomendações de carreira.',
+            },
+            {
+              id: 'Six',
+              question: 'Posso refazer o teste se não gostar dos resultados?',
+              answer: 'Sim, você pode refazer o teste quantas vezes quiser para comparar diferentes resultados e obter uma análise mais precisa.',
+            },
+          ].map(({ id, question, answer, show }) => (
+            <div className="accordion-item" key={id}>
+              <h2 className="accordion-header" id={`heading${id}`}>
+                <button
+                  className={`accordion-button ${!show ? 'collapsed' : ''}`}
+                  type="button"
+                  data-bs-toggle="collapse"
+                  data-bs-target={`#collapse${id}`}
+                  aria-expanded={show ? 'true' : 'false'}
+                  aria-controls={`collapse${id}`}
+                >
+                  {question}
+                </button>
+              </h2>
+              <div
+                id={`collapse${id}`}
+                className={`accordion-collapse collapse ${show ? 'show' : ''}`}
+                aria-labelledby={`heading${id}`}
+              >
+                <div className="accordion-body">{answer}</div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </>
