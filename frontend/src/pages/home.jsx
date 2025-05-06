@@ -26,13 +26,7 @@ function Home() {
 
       <img src="/banner.png" alt="banner demonstrativo" className="w-100" />
 
-      <div className="container my-5">
-        <h3 className="text-center">Explore os Benefícios do Vocational Test:</h3>
-        <div className="row justify-content-center mt-4">
-          {/* Cards */}
-          {/* ... os cards permanecem iguais */}
-        </div>
-      </div>
+      
 
       <div className="container my-5" id="scrollspyHeading3">
         <h3 className="text-center">Dúvidas Frequentes:</h3>

@@ -133,7 +133,8 @@ function Chat() {
               marginRight: '10px'
             }}
           />
-          <button className="btn btn-primary rounded-pill px-4" onClick={handleSend}>
+          <button className="btn btn-primary rounded-pill px-4" onClick={handleSend}
+          style={{ backgroundColor: '#4BB6C9', height: '50px', border: 'none'}}>
             Enviar
           </button>
         </div>
