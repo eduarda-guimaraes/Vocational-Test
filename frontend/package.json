@@ -12,7 +12,7 @@
     "axios": "^1.6.7",
     "bootstrap": "^5.3.5",
     "bootstrap-icons": "^1.12.1",
-    "firebase": "^10.8.1",
+    "firebase": "^10.14.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.22.3"
