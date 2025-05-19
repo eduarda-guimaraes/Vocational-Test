@@ -11,6 +11,7 @@ function Perfil() {
     nome: 'Eduarda Guimarães',
     email: 'eduarda@email.com',
     senha: '********',
+    foto: '/iconevazio.png'
   });
 
   const [editData, setEditData] = useState({ ...userData });
@@ -40,10 +41,10 @@ function Perfil() {
           <div className="mb-3"><strong>Nome:</strong> {userData.nome}</div>
           <div className="mb-3"><strong>Email:</strong> {userData.email}</div>
           <div className="mb-4"><strong>Senha:</strong> {userData.senha}</div>
-          <button className="btn w-100 mb-3" style={{ backgroundColor: '#447EB8', color: '#fff' }} onClick={() => { setEditData(userData); setView('editar'); }}>
+          <button className="btn-perfil w-100 mb-3"  onClick={() => { setEditData(userData); setView('editar'); }}>
             Editar Informações
           </button>
-          <button className="btn w-100" style={{ backgroundColor: '#447EB8', color: '#fff' }} onClick={() => setView('perfil')}>
+          <button className="btn-perfil w-100" onClick={() => setView('perfil')}>
             Voltar
           </button>
         </div>
@@ -65,7 +66,7 @@ function Perfil() {
               <label className="form-label">Senha</label>
               <input type="password" name="senha" className="form-control" value={editData.senha} onChange={handleChange} />
             </div>
-            <button type="button" className="btn w-100" style={{ backgroundColor: '#447EB8', color: '#fff' }} onClick={handleSave}>
+            <button type="button" className="btn-perfil w-100" style={{ backgroundColor: '#447EB8', color: '#fff' }} onClick={handleSave}>
               Salvar e Voltar
             </button>
           </form>
@@ -92,7 +93,7 @@ function Perfil() {
               ))}
             </ul>
           )}
-          <button className="btn w-100 mt-3" style={{ backgroundColor: '#447EB8', color: '#fff' }} onClick={() => setView('perfil')}>
+          <button className="btn-perfil w-100 mt-3" onClick={() => setView('perfil')}>
             Voltar
           </button>
         </div>
@@ -101,11 +102,24 @@ function Perfil() {
 
     return (
       <div className="card p-4 shadow-sm mx-auto" style={{ maxWidth: '500px' }}>
-        <h5 className="card-title text-center mb-4">Olá, {userData.nome}!</h5>
-        <button className="btn w-100 mb-3" style={{ backgroundColor: '#447EB8', color: '#fff' }} onClick={() => setView('info')}>
+        <div className="text-center mb-3">
+        <img
+          src={userData.foto}
+          alt="Foto de perfil"
+          style={{
+            width: '100px',
+            height: '100px',
+            borderRadius: '50%',
+            objectFit: 'cover',
+            border: '3px solid #447eb8'
+          }}
+        />
+      </div>
+      <h5 className="card-title text-center mb-4">Olá, {userData.nome}!</h5>
+        <button className="btn-perfil w-100 mb-3" onClick={() => setView('info')}>
           Ver Informações Pessoais
         </button>
-        <button className="btn w-100" style={{ backgroundColor: '#447EB8', color: '#fff' }} onClick={() => setView('historico')}>
+        <button className="btn-perfil w-100" onClick={() => setView('historico')}>
           Histórico de Testes
         </button>
       </div>

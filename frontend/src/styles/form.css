@@ -3,3 +3,16 @@
     margin: 0%;
     box-sizing: border-box;
 }
+
+.btn-enviar {
+  background-color: #4BB6C9;
+  height: 50px;
+  border: none;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.btn-enviar:hover {
+  background-color: #3aa5b8; /* tom mais escuro no hover */
+  transform: scale(1.03); /* leve aumento */
+  cursor: pointer;
+}

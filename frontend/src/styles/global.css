@@ -20,27 +20,44 @@
     hyphens: auto;  /* Permite a quebra de palavras, evitando grandes espaços */
   }  
 
-  .nav-link {
-    position: relative;
-    text-decoration: none;
-  }
+.nav-link {
+  position: relative;
+  text-decoration: none;
+  color: #000;
+  font-weight: 400;
+  transition: color 0.3s ease;
+}
+
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background-color: #447eb8;
+  transition: width 0.3s ease;
+}
+
+.nav-link:hover {
+  color: #447eb8;
+}
+
+.nav-link:hover::after {
+  width: 100%;
+}
+
+.nav-link.active {
+  color: #447eb8;
+  font-weight: 500;
+}
+
+.nav-link.active::after {
+  width: 100%;
+}
+
   
-  .nav-link::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 0;
-    height: 2px;
-    background-color: #4BB6C9;
-    transition: width 0.3s ease;
-  }
-  
-  .nav-link:hover::after {
-    width: 100%;
-  }
-  
-  .btn-iniciar-teste {
+.btn-iniciar-teste {
     color: #000000;
     background-color: #ffffff;
     border-radius: 50px;
@@ -48,11 +65,26 @@
     height: 40px;
     transition: all 0.3s ease;
     font-weight: 500;
-  }
+}
   
-  .btn-iniciar-teste:hover {
+.btn-iniciar-teste:hover {
     background-color: #0097B2;
     color: #ffffff;
     transform: translateY(-2px);
     
-  }
+}
+
+.btn-perfil {
+  background-color: #447EB8;
+  color: #fff;
+  border: none;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  border-radius: 10px;
+  padding: 2%;
+}
+
+.btn-perfil:hover {
+  background-color: #366ba1; /* tom mais escuro no hover */
+  transform: scale(1.02);
+  cursor: pointer;
+}

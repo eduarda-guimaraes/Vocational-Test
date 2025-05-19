@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Header from '../components/header';
 import '../styles/global.css';
+import '../styles/form.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 
@@ -133,10 +134,12 @@ function Chat() {
               marginRight: '10px'
             }}
           />
-          <button className="btn btn-primary rounded-pill px-4" onClick={handleSend}
-          style={{ backgroundColor: '#4BB6C9', height: '50px', border: 'none'}}>
+          <button
+            className="btn-enviar btn btn-primary rounded-pill px-4"
+            onClick={handleSend}>
             Enviar
           </button>
+
         </div>
       </div>
     </>

@@ -1,10 +1,13 @@
 import React from 'react'; 
-import { Link } from 'react-router-dom';
+import { Link,useLocation } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '../styles/global.css';
 import '../styles/form.css';
 
 function Header() {
+  const location = useLocation();
+  const pathname = location.pathname;
+
   return (
     <header>
       <nav className="navbar fixed-top bg-white shadow-sm p-3">
@@ -14,9 +17,9 @@ function Header() {
             <span className="ms-3">Vocational Test</span>
           </a>
           <div className="d-flex ms-auto align-items-center">
-            <Link className="nav-link mx-3" to="/">Home</Link>
-            <Link className="nav-link mx-3" to="/chat">Chat</Link>
-            <Link className="nav-link mx-3" to="/perfil">
+             <Link className={`nav-link mx-3 ${pathname === '/' ? 'active' : ''}`} to="/">Home</Link>
+             <Link className={`nav-link mx-3 ${pathname === '/chat' ? 'active' : ''}`} to="/chat">Chat</Link>
+             <Link className={`nav-link mx-3 ${pathname === '/perfil' ? 'active' : ''}`} to="/perfil">
               {/* Ícone de perfil */}
               <div
                 style={{
