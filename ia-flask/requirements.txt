@@ -1,0 +1,5 @@
+Flask
+Flask-Cors
+scikit-learn
+firebase-admin
+gunicorn  # caso use o Heroku
