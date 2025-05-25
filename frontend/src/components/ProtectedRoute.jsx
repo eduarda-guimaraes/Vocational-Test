@@ -1,4 +1,3 @@
-// src/components/ProtectedRoute.jsx
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged, getAuth } from 'firebase/auth';
@@ -14,7 +13,7 @@ export default function ProtectedRoute({ children }) {
       if (user) {
         setIsAuthenticated(true);
       } else {
-        navigate('/');
+        navigate('/login');
       }
       setLoading(false);
     });
