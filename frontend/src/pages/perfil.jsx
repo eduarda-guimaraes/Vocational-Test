@@ -2,14 +2,17 @@ import React, { useState, useEffect } from 'react';
 import Header from '../components/header';
 import '../styles/global.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import { auth } from '../services/firebase';
+import { signOut } from 'firebase/auth';
+import { useNavigate } from 'react-router-dom';
 
 function Perfil() {
   const [view, setView] = useState('perfil');
 
-  // Estado com dados do usuário
+  // Estado com dados reais do usuário logado
   const [userData, setUserData] = useState({
-    nome: 'Eduarda Guimarães',
-    email: 'eduarda@email.com',
+    nome: '',
+    email: '',
     senha: '********',
     foto: '/iconevazio.png'
   });
@@ -17,8 +20,25 @@ function Perfil() {
   const [editData, setEditData] = useState({ ...userData });
   const [historico, setHistorico] = useState([]);
 
-  // Carrega o histórico do localStorage ao abrir o componente
   useEffect(() => {
+    const currentUser = auth.currentUser;
+
+    if (currentUser) {
+      const nome = currentUser.displayName || 'Usuário';
+      const email = currentUser.email;
+      const foto = currentUser.photoURL || '/iconevazio.png';
+
+      const dadosUsuario = {
+        nome,
+        email,
+        senha: '********',
+        foto
+      };
+
+      setUserData(dadosUsuario);
+      setEditData(dadosUsuario);
+    }
+
     const dadosSalvos = JSON.parse(localStorage.getItem('historico')) || [];
     setHistorico(dadosSalvos);
   }, []);
@@ -33,6 +53,18 @@ function Perfil() {
     setView('perfil');
   };
 
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/'); // Redireciona para a home após logout
+    } catch (error) {
+      console.error('Erro ao sair:', error);
+    }
+  };
+
+
   const renderContent = () => {
     if (view === 'info') {
       return (
@@ -41,7 +73,7 @@ function Perfil() {
           <div className="mb-3"><strong>Nome:</strong> {userData.nome}</div>
           <div className="mb-3"><strong>Email:</strong> {userData.email}</div>
           <div className="mb-4"><strong>Senha:</strong> {userData.senha}</div>
-          <button className="btn-perfil w-100 mb-3"  onClick={() => { setEditData(userData); setView('editar'); }}>
+          <button className="btn-perfil w-100 mb-3" onClick={() => { setEditData(userData); setView('editar'); }}>
             Editar Informações
           </button>
           <button className="btn-perfil w-100" onClick={() => setView('perfil')}>
@@ -60,11 +92,11 @@ function Perfil() {
             </div>
             <div className="mb-3">
               <label className="form-label">Email</label>
-              <input type="email" name="email" className="form-control" value={editData.email} onChange={handleChange} />
+              <input type="email" name="email" className="form-control" value={editData.email} onChange={handleChange} disabled />
             </div>
             <div className="mb-3">
               <label className="form-label">Senha</label>
-              <input type="password" name="senha" className="form-control" value={editData.senha} onChange={handleChange} />
+              <input type="password" name="senha" className="form-control" value={editData.senha} disabled />
             </div>
             <button type="button" className="btn-perfil w-100" style={{ backgroundColor: '#447EB8', color: '#fff' }} onClick={handleSave}>
               Salvar e Voltar
@@ -101,29 +133,33 @@ function Perfil() {
     }
 
     return (
-      <div className="card p-4 shadow-sm mx-auto" style={{ maxWidth: '500px' }}>
-        <div className="text-center mb-3">
-        <img
-          src={userData.foto}
-          alt="Foto de perfil"
-          style={{
-            width: '100px',
-            height: '100px',
-            borderRadius: '50%',
-            objectFit: 'cover',
-            border: '3px solid #447eb8'
-          }}
-        />
-      </div>
-      <h5 className="card-title text-center mb-4">Olá, {userData.nome}!</h5>
-        <button className="btn-perfil w-100 mb-3" onClick={() => setView('info')}>
-          Ver Informações Pessoais
-        </button>
-        <button className="btn-perfil w-100" onClick={() => setView('historico')}>
-          Histórico de Testes
-        </button>
-      </div>
+        <div className="card p-4 shadow-sm mx-auto" style={{ maxWidth: '500px' }}>
+          <div className="text-center mb-3">
+            <img
+              src={userData.foto}
+              alt="Foto de perfil"
+              style={{
+                width: '100px',
+                height: '100px',
+                borderRadius: '50%',
+                objectFit: 'cover',
+                border: '3px solid #447eb8'
+              }}
+            />
+          </div>
+          <h5 className="card-title text-center mb-4">Olá, {userData.nome}!</h5>
+          <button className="btn-perfil w-100 mb-3" onClick={() => setView('info')}>
+            Ver Informações Pessoais
+          </button>
+          <button className="btn-perfil w-100 mb-3" onClick={() => setView('historico')}>
+            Histórico de Testes
+          </button>
+          <button className="btn btn-danger w-100" onClick={handleLogout}>
+            Sair
+          </button>
+        </div>
     );
+
   };
 
   return (
