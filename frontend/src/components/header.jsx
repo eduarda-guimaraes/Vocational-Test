@@ -17,7 +17,7 @@ function Header() {
             <span className="ms-3">Vocational Test</span>
           </a>
           <div className="d-flex ms-auto align-items-center">
-             <Link className={`nav-link mx-3 ${pathname === '/' ? 'active' : ''}`} to="/">Home</Link>
+             <Link className={`nav-link mx-3 ${pathname === '/home' ? 'active' : ''}`} to="/home">Home</Link>
              <Link className={`nav-link mx-3 ${pathname === '/chat' ? 'active' : ''}`} to="/chat">Chat</Link>
              <Link className={`nav-link mx-3 ${pathname === '/perfil' ? 'active' : ''}`} to="/perfil">
               {/* Ícone de perfil */}
