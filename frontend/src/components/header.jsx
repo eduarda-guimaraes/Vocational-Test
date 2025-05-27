@@ -19,22 +19,23 @@ function Header() {
           <div className="d-flex ms-auto align-items-center">
              <Link className={`nav-link mx-3 ${pathname === '/home' ? 'active' : ''}`} to="/home">Home</Link>
              <Link className={`nav-link mx-3 ${pathname === '/chat' ? 'active' : ''}`} to="/chat">Chat</Link>
-             <Link className={`nav-link mx-3 ${pathname === '/perfil' ? 'active' : ''}`} to="/perfil">
-              {/* Ícone de perfil */}
-              <div
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '50%',
-                  backgroundColor: '#e0e0e0',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <i className="bi bi-person" style={{ fontSize: '24px' }}></i>
-              </div>
-            </Link>
+             <Link className={`nav-link nav-perfil mx-3 ${pathname === '/perfil' ? 'active' : ''}`} to="/perfil">
+                <div
+                  className="perfil-icon"
+                  style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    backgroundColor: '#e0e0e0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <i className="bi bi-person" style={{ fontSize: '24px' }}></i>
+                </div>
+              </Link>
+
           </div>
         </div>
       </nav>

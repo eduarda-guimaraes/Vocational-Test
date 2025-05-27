@@ -88,3 +88,18 @@
   transform: scale(1.02);
   cursor: pointer;
 }
+
+/* Remove a linha inferior do perfil */
+.nav-perfil::after {
+  display: none !important;
+}
+
+/* Impede que o link mude de cor no hover */
+.nav-perfil:hover {
+  color: inherit !important;
+}
+
+/* Muda apenas a cor do ícone dentro do botão de perfil */
+.nav-perfil:hover .bi-person {
+  color: #447eb8; /* Azul desejado no hover */
+}
