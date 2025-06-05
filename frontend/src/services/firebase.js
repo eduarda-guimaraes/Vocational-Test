@@ -3,15 +3,17 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
+console.log("API KEY:", import.meta.env.VITE_FIREBASE_API_KEY);
+
 // Configuração do Firebase do seu projeto
 const firebaseConfig = {
-  apiKey: "AIzaSyBX7n4-x0Z1LGZMMeioxhlB28tm7nFENFg",
-  authDomain: "vocational-test-90cd1.firebaseapp.com",
-  projectId: "vocational-test-90cd1",
-  storageBucket: "vocational-test-90cd1.firebasestorage.app",
-  messagingSenderId: "375023648945",
-  appId: "1:375023648945:web:a68468e539b33d5f092290",
-  measurementId: "G-2R8NP3KJ58"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // Inicializa o app Firebase
