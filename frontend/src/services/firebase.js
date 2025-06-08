@@ -3,8 +3,6 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
-console.log("API KEY:", import.meta.env.VITE_FIREBASE_API_KEY);
-
 // Configuração do Firebase do seu projeto
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,

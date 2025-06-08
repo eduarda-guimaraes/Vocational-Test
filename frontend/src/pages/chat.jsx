@@ -7,71 +7,42 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 
 function Chat() {
   const [messages, setMessages] = useState([
-    { sender: 'bot', text: 'Olá! Vamos começar seu teste vocacional. Qual área você mais se identifica?' }
+    { sender: 'bot', text: 'Olá! Vamos começar seu teste vocacional. Me diga com o que você mais se identifica ou tem interesse profissional.' }
   ]);
   const [input, setInput] = useState('');
-  const [stage, setStage] = useState(0);
-  const [respostas, setRespostas] = useState([]);
 
-  // Limpar o histórico ao carregar a página
   useEffect(() => {
     localStorage.removeItem('historico');
   }, []);
 
-  const perguntas = [
-    'Você se considera mais analítico ou criativo?',
-    'Prefere trabalhar em ambientes estruturados ou flexíveis?',
-    'Você gosta mais de trabalhar com pessoas ou com dados?',
-    'Você prefere liderança ou execução?',
-  ];
+  const enviarParaIA = async (mensagem) => {
+    try {
+      const response = await fetch('http://localhost:5000/api/chat-vocacional', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mensagem })
+      });
 
-  const resultados = {
-    tecnologia: 'Você pode se dar bem com carreiras como Análise de Sistemas ou Engenharia de Software.',
-    saude: 'Você pode gostar de áreas como Enfermagem, Medicina ou Psicologia.',
-    humanas: 'Você pode se interessar por Comunicação, Psicologia ou Direito.',
-    exatas: 'Você pode se identificar com Engenharia, Estatística ou Física.',
-    indefinido: 'Ainda não foi possível determinar sua área ideal, mas continue explorando!',
+      const data = await response.json();
+      return data.resposta || 'Não consegui entender, pode reformular?';
+    } catch (error) {
+      console.error('Erro ao enviar para IA:', error);
+      return 'Houve um erro ao se conectar com a IA.';
+    }
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim()) return;
+
     const userMessage = { sender: 'user', text: input };
     setMessages((prev) => [...prev, userMessage]);
 
-    const updatedRespostas = [...respostas, input];
-    setRespostas(updatedRespostas);
+    const respostaIA = await enviarParaIA(input);
+
+    const botMessage = { sender: 'bot', text: respostaIA };
+    setMessages((prev) => [...prev, botMessage]);
 
     setInput('');
-
-    setTimeout(() => {
-      if (stage < perguntas.length) {
-        setMessages((prev) => [...prev, { sender: 'bot', text: perguntas[stage] }]);
-        setStage(stage + 1);
-      } else {
-        const resultadoFinal = determinarResultado(updatedRespostas);
-        const mensagemFinal = resultados[resultadoFinal];
-
-        // Salvar no localStorage
-        const historicoAnterior = JSON.parse(localStorage.getItem('historico')) || [];
-        const novoHistorico = [...historicoAnterior, { respostas: updatedRespostas, resultado: mensagemFinal }];
-        localStorage.setItem('historico', JSON.stringify(novoHistorico));
-
-        setMessages((prev) => [
-          ...prev,
-          { sender: 'bot', text: 'Obrigado por responder! Aqui está seu resultado:' },
-          { sender: 'bot', text: mensagemFinal }
-        ]);
-      }
-    }, 600);
-  };
-
-  const determinarResultado = (respostas) => {
-    const joined = respostas.join(' ').toLowerCase();
-    if (joined.includes('tecnologia')) return 'tecnologia';
-    if (joined.includes('saúde') || joined.includes('medicina') || joined.includes('enfermagem')) return 'saude';
-    if (joined.includes('pessoas') || joined.includes('comunicação')) return 'humanas';
-    if (joined.includes('dados') || joined.includes('números')) return 'exatas';
-    return 'indefinido';
   };
 
   const handleKeyPress = (e) => {
@@ -139,7 +110,6 @@ function Chat() {
             onClick={handleSend}>
             Enviar
           </button>
-
         </div>
       </div>
     </>
