@@ -61,8 +61,8 @@ export default function Login() {
               Criar Conta
             </Link>
           </p>
-          <Link to="/home" className="btn btn-link" style={{ color: '#447EB8' }}>
-            Voltar para Home
+          <Link to="/recuperarSenha" className="btn btn-link" style={{ color: '#447EB8' }}>
+          Esqueci minha senha
           </Link>
         </div>
       </div>
