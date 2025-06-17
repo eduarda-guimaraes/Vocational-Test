@@ -5,6 +5,7 @@ import Cadastro from './pages/cadastro';
 import Perfil from './pages/perfil';
 import Home from './pages/home';
 import Chat from './pages/chat';
+import RecuperarSenha from './pages/recuperarSenha';
 import ProtectedRoute from './components/ProtectedRoute';
 
 import Header from './components/header';
@@ -13,7 +14,7 @@ import Footer from './components/footer';
 function App() {
   return (
     <>
-      <Header /> {/* aparece em todas as páginas */}
+      <Header /> 
 
       <main style={{ minHeight: 'calc(100vh - 120px)', paddingTop: '70px' }}>
         <Routes>
@@ -30,10 +31,10 @@ function App() {
           />
           <Route path="/chat" element={<Chat />} />
           <Route path="/home" element={<Home />} />
+          <Route path="/recuperarSenha" element={<RecuperarSenha />} /> 
         </Routes>
       </main>
-
-      <Footer /> {/* aparece em todas as páginas */}
+      <Footer />
     </>
   );
 }

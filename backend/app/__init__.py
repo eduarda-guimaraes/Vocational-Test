@@ -5,7 +5,7 @@ import os
 
 def create_app():
     app = Flask(__name__)
-    load_dotenv()  # Carrega variáveis do .env
+    load_dotenv()
     CORS(app)
 
     from .routes import main

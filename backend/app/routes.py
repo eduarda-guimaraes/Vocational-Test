@@ -11,14 +11,15 @@ openai.api_key=os.getenv("OPENAI_API_KEY")
 def chat_vocacional():
     data = request.json
     pergunta = data.get('mensagem')
-    print("CHAVE DA API:", os.getenv("OPENAI_API_KEY"))
+   
     try:
         resposta = openai.chat.completions.create(
-            model="gpt-3.5-turbo",  # ou "gpt-3.5-turbo" se preferir
+            model="gpt-3.5-turbo",  
             messages=[
                 {
                     "role": "system",
                     "content": "Você é um orientador vocacional que ajuda estudantes a escolherem suas profissões com base em interesses e habilidades."
+                    "Dê respostas mais curtas para que haja uma interação com o usuário."
                 },
                 {
                     "role": "user",
