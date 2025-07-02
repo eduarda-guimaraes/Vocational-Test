@@ -1,11 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  signOut,
-  deleteUser,
-  signInWithEmailAndPassword,
-} from 'firebase/auth';
-import { auth } from '../services/firebase';
+import { signInWithEmailAndPassword, deleteUser, signOut } from 'firebase/auth';
+import { auth } from '../services/firebase'; // este é seu auth configurado corretamente
 
 export default function AcessoNegado() {
   const [mensagem, setMensagem] = useState('');
@@ -19,18 +15,19 @@ export default function AcessoNegado() {
   }, []);
 
   const voltarParaLogin = async () => {
-    try {
-      if (auth.currentUser) {
-        await signOut(auth);
-      }
-    } catch (error) {
-      console.error('Erro ao sair:', error);
-    } finally {
-      sessionStorage.removeItem('emailTemp');
-      sessionStorage.removeItem('senhaTemp');
-      navigate('/login', { replace: true });
+  try {
+    if (auth.currentUser) {
+      await signOut(auth);
     }
-  };
+  } catch (error) {
+    console.error('Erro ao sair:', error);
+  } finally {
+    // Força a navegação para login
+    sessionStorage.removeItem('emailTemp');
+    sessionStorage.removeItem('senhaTemp');
+    navigate('/login', { replace: true });
+  }
+};
 
   const excluirConta = async () => {
     try {
@@ -44,14 +41,12 @@ export default function AcessoNegado() {
 
       await signInWithEmailAndPassword(auth, email, senha);
       await deleteUser(auth.currentUser);
-
       sessionStorage.removeItem('emailTemp');
       sessionStorage.removeItem('senhaTemp');
-
       navigate('/cadastro');
     } catch (err) {
       console.error('Erro ao excluir conta:', err);
-      setMensagem('Erro ao excluir conta. Tente novamente ou faça login novamente.');
+      setMensagem('Erro ao excluir conta. Tente novamente.');
     }
   };
 
