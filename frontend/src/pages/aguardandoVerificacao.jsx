@@ -1,23 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { auth } from '../services/firebase';
 import { useNavigate } from 'react-router-dom';
 import {
   sendEmailVerification,
   deleteUser,
+  signInWithEmailAndPassword,
 } from 'firebase/auth';
 
 export default function AguardandoVerificacao() {
   const [mensagem, setMensagem] = useState('');
   const [loadingExcluir, setLoadingExcluir] = useState(false);
+  const [usuarioLogado, setUsuarioLogado] = useState(null);
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(user => {
+      setUsuarioLogado(user);
+    });
+    return unsubscribe;
+  }, []);
+
   const reenviar = async () => {
-    if (!auth.currentUser) {
+    if (!usuarioLogado) {
       setMensagem('Usuário não autenticado. Faça login novamente.');
       return;
     }
     try {
-      await sendEmailVerification(auth.currentUser);
+      await sendEmailVerification(usuarioLogado);
       setMensagem('E-mail de verificação reenviado com sucesso!');
     } catch (error) {
       console.error('Erro ao reenviar email:', error);
@@ -26,30 +35,39 @@ export default function AguardandoVerificacao() {
   };
 
   const verificar = async () => {
-    if (!auth.currentUser) return;
-    await auth.currentUser.reload();
-    if (auth.currentUser.emailVerified) {
+    if (!usuarioLogado) {
+      setMensagem('Usuário não autenticado. Faça login novamente.');
+      return;
+    }
+    await usuarioLogado.reload();
+    if (usuarioLogado.emailVerified) {
       setMensagem('Email verificado com sucesso! Redirecionando...');
-      setTimeout(() => navigate('/completar-cadastro'), 2000);
+      setTimeout(() => navigate('/perfil'), 2000);
     } else {
       setMensagem('Seu email ainda não foi verificado.');
     }
   };
 
   const excluirConta = async () => {
-    if (!auth.currentUser) {
-      setMensagem('Usuário não autenticado.');
+    const email = sessionStorage.getItem('emailTemp');
+    const senha = sessionStorage.getItem('senhaTemp');
+
+    if (!email || !senha) {
+      setMensagem('Para excluir a conta, faça login novamente.');
       return;
     }
 
     try {
       setLoadingExcluir(true);
-      await deleteUser(auth.currentUser);
+      const result = await signInWithEmailAndPassword(auth, email, senha);
+      await deleteUser(result.user);
       setMensagem('Conta excluída com sucesso.');
+      sessionStorage.removeItem('emailTemp');
+      sessionStorage.removeItem('senhaTemp');
       setTimeout(() => navigate('/cadastro'), 1000);
     } catch (error) {
       console.error('Erro ao excluir conta:', error);
-      setMensagem('Erro ao excluir conta. Talvez seja necessário fazer login novamente.');
+      setMensagem('Erro ao excluir conta. Faça login novamente.');
     } finally {
       setLoadingExcluir(false);
     }

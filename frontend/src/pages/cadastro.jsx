@@ -39,6 +39,14 @@ export default function Cadastro() {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
       await sendEmailVerification(userCredential.user);
+
+      // 🔹 Salva o nome no localStorage
+      localStorage.setItem('nomeUsuario', nome);
+
+      // 🔹 Salva email e senha para possível reautenticação (exclusão)
+      sessionStorage.setItem('emailTemp', email);
+      sessionStorage.setItem('senhaTemp', senha);
+
       navigate('/aguardando-verificacao');
     } catch (err) {
       console.error('Erro Firebase:', err.code);

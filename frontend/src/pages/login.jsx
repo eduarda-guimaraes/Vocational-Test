@@ -15,18 +15,7 @@ export default function Login() {
     setErro('');
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, senha);
-
-      if (!userCredential.user.emailVerified) {
-        // Salva as credenciais temporárias para possível exclusão
-        sessionStorage.setItem('emailTemp', email);
-        sessionStorage.setItem('senhaTemp', senha);
-
-        // Redireciona para tela de acesso negado
-        navigate('/acesso-negado');
-        return;
-      }
-
+      await signInWithEmailAndPassword(auth, email, senha);
       navigate('/perfil');
     } catch (err) {
       setErro('Email ou senha incorretos.');
