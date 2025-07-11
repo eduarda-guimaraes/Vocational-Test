@@ -5,6 +5,9 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { auth } from '../services/firebase';
 import { signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../services/firebase';
+
 
 function Perfil() {
   const [view, setView] = useState('perfil');
@@ -21,27 +24,40 @@ function Perfil() {
   const [historico, setHistorico] = useState([]);
 
   useEffect(() => {
+  const fetchUserData = async () => {
     const currentUser = auth.currentUser;
 
     if (currentUser) {
-      const nome = currentUser.displayName || 'Usuário';
-      const email = currentUser.email;
-      const foto = currentUser.photoURL || '/iconevazio.png';
+      try {
+        const docRef = doc(db, "usuarios", currentUser.uid);
+        const docSnap = await getDoc(docRef);
 
-      const dadosUsuario = {
-        nome,
-        email,
-        senha: '********',
-        foto
-      };
+        if (docSnap.exists()) {
+          const dados = docSnap.data();
 
-      setUserData(dadosUsuario);
-      setEditData(dadosUsuario);
+          const dadosUsuario = {
+            nome: dados.nome,
+            email: currentUser.email,
+            senha: '********',
+            foto: currentUser.photoURL || '/iconevazio.png'
+          };
+
+          setUserData(dadosUsuario);
+          setEditData(dadosUsuario);
+        } else {
+          console.log('Documento não encontrado no Firestore');
+        }
+      } catch (error) {
+        console.error('Erro ao buscar dados do Firestore:', error);
+      }
     }
 
     const dadosSalvos = JSON.parse(localStorage.getItem('historico')) || [];
     setHistorico(dadosSalvos);
-  }, []);
+  };
+
+  fetchUserData();
+}, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

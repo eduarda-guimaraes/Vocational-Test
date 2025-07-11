@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
-import { auth } from '../services/firebase';
+import { auth, db } from '../services/firebase';
+import { collection, doc, setDoc } from 'firebase/firestore';
 import { useNavigate, Link } from 'react-router-dom';
 
 export default function Cadastro() {
@@ -37,13 +38,24 @@ export default function Cadastro() {
     }
 
     try {
+      // Cria usuário no Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
-      await sendEmailVerification(userCredential.user);
+      const usuario = userCredential.user;
 
-      // 🔹 Salva o nome no localStorage
+      // Envia email de verificação
+      await sendEmailVerification(usuario);
+
+      // Salva informações do usuário no Firestore
+      const usuarioRef = doc(collection(db, "usuarios"), usuario.uid);
+      await setDoc(usuarioRef, {
+        nome: nome,
+        email: email,
+        criadoEm: new Date(),
+        emailVerificado: false,
+      });
+
+      // Mantém o localStorage se precisar (opcional)
       localStorage.setItem('nomeUsuario', nome);
-
-      // 🔹 Salva email e senha para possível reautenticação (exclusão)
       sessionStorage.setItem('emailTemp', email);
       sessionStorage.setItem('senhaTemp', senha);
 
