@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../services/firebase';
+import {
+  signInWithEmailAndPassword,
+  signInWithPopup
+} from 'firebase/auth';
+import { auth, provider, db } from '../services/firebase';
 import { useNavigate, Link } from 'react-router-dom';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -11,30 +15,49 @@ export default function Login() {
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
-  e.preventDefault();
-  setErro('');
+    e.preventDefault();
+    setErro('');
 
-  try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, senha);
-    const user = userCredential.user;
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, senha);
+      const user = userCredential.user;
 
-    // Atualiza os dados do usuário (refresca o status de verificação)
-    await user.reload();
+      await user.reload();
 
-    if (user.emailVerified) {
-      navigate('/perfil');
-    } else {
-      navigate('/aguardando-verificacao');
+      if (user.emailVerified) {
+        navigate('/perfil');
+      } else {
+        navigate('/aguardando-verificacao');
+      }
+    } catch (err) {
+      console.error('Erro no login:', err);
+      setErro('Email ou senha incorretos.');
     }
-  } catch (err) {
-    console.error('Erro no login:', err);
-    setErro('Email ou senha incorretos.');
-  }
-};
-
+  };
 
   const toggleMostrarSenha = () => {
     setMostrarSenha(!mostrarSenha);
+  };
+
+  const loginComGoogle = async () => {
+    setErro('');
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      // Verifica se o e-mail já está registrado no Firestore
+      const userDoc = await getDoc(doc(db, 'usuarios', user.uid));
+      if (!userDoc.exists()) {
+        setErro('Este e-mail ainda não possui uma conta. Crie uma conta antes de fazer login.');
+        await auth.signOut();
+        return;
+      }
+
+      navigate('/perfil');
+    } catch (error) {
+      console.error('Erro no login com Google:', error);
+      setErro('Não foi possível fazer login com o Google.');
+    }
   };
 
   return (
@@ -89,12 +112,20 @@ export default function Login() {
 
           <button
             type="submit"
-            className="btn w-100 mb-3"
+            className="btn w-100 mb-2"
             style={{ backgroundColor: '#447EB8', color: '#fff' }}
           >
             Entrar
           </button>
         </form>
+
+        <button
+          type="button"
+          onClick={loginComGoogle}
+          className="btn btn-outline-danger w-100 mb-3"
+        >
+          <i className="bi bi-google me-2"></i> Entrar com Google
+        </button>
 
         <div className="text-center">
           <p className="mb-0">
