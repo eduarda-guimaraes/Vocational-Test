@@ -7,8 +7,8 @@ import Home from './pages/home';
 import Chat from './pages/chat';
 import RecuperarSenha from './pages/recuperarSenha';
 import AguardandoVerificacao from './pages/AguardandoVerificacao';
-import DefinirSenha from './pages/DefinirSenha';       // ✅ novo import
-import EditarPerfil from './pages/EditarPerfil';       // ✅ novo import
+import DefinirSenha from './pages/DefinirSenha';     
+import EditarPerfil from './pages/EditarPerfil';      
 
 import ProtectedRoute from './components/ProtectedRoute';
 import Header from './components/header';
