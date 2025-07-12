@@ -11,16 +11,27 @@ export default function Login() {
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
-    e.preventDefault();
-    setErro('');
+  e.preventDefault();
+  setErro('');
 
-    try {
-      await signInWithEmailAndPassword(auth, email, senha);
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, senha);
+    const user = userCredential.user;
+
+    // Atualiza os dados do usuário (refresca o status de verificação)
+    await user.reload();
+
+    if (user.emailVerified) {
       navigate('/perfil');
-    } catch (err) {
-      setErro('Email ou senha incorretos.');
+    } else {
+      navigate('/aguardando-verificacao');
     }
-  };
+  } catch (err) {
+    console.error('Erro no login:', err);
+    setErro('Email ou senha incorretos.');
+  }
+};
+
 
   const toggleMostrarSenha = () => {
     setMostrarSenha(!mostrarSenha);

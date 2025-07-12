@@ -5,6 +5,7 @@ import {
   sendEmailVerification,
   deleteUser,
   signInWithEmailAndPassword,
+  onAuthStateChanged,
 } from 'firebase/auth';
 
 export default function AguardandoVerificacao() {
@@ -14,39 +15,63 @@ export default function AguardandoVerificacao() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(user => {
-      setUsuarioLogado(user);
+    // Escuta o usuário logado e inicia verificação automática
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setUsuarioLogado(user);
+        await user.reload();
+
+        if (user.emailVerified) {
+          navigate('/perfil'); // Redireciona automaticamente
+        } else {
+          setMensagem('Seu e-mail ainda não foi verificado.');
+          // Inicia verificação automática a cada 5 segundos
+          const interval = setInterval(async () => {
+            await user.reload();
+            if (user.emailVerified) {
+              clearInterval(interval);
+              setMensagem('Email verificado com sucesso! Redirecionando...');
+              setTimeout(() => navigate('/perfil'), 1500);
+            }
+          }, 5000);
+          return () => clearInterval(interval);
+        }
+      } else {
+        setMensagem('Usuário não autenticado. Faça login novamente.');
+      }
     });
-    return unsubscribe;
-  }, []);
+
+    return () => unsubscribe();
+  }, [navigate]);
 
   const reenviar = async () => {
     if (!usuarioLogado) {
       setMensagem('Usuário não autenticado. Faça login novamente.');
       return;
     }
+
     try {
-      await sendEmailVerification(usuarioLogado);
+      await usuarioLogado.reload(); // Força atualização dos dados
+      const user = auth.currentUser;
+
+      if (user.emailVerified) {
+        setMensagem('Este e-mail já foi verificado. Redirecionando...');
+        setTimeout(() => navigate('/perfil'), 2000);
+        return;
+      }
+
+      await sendEmailVerification(user);
       setMensagem('E-mail de verificação reenviado com sucesso!');
     } catch (error) {
-      console.error('Erro ao reenviar email:', error);
-      setMensagem('Erro ao reenviar email. Tente novamente mais tarde.');
+      console.error('Erro ao reenviar email:', error.code, error.message);
+      if (error.code === 'auth/too-many-requests') {
+        setMensagem('Você está tentando reenviar muitas vezes. Tente mais tarde.');
+      } else {
+        setMensagem('Erro ao reenviar e-mail. Tente novamente mais tarde.');
+      }
     }
   };
 
-  const verificar = async () => {
-    if (!usuarioLogado) {
-      setMensagem('Usuário não autenticado. Faça login novamente.');
-      return;
-    }
-    await usuarioLogado.reload();
-    if (usuarioLogado.emailVerified) {
-      setMensagem('Email verificado com sucesso! Redirecionando...');
-      setTimeout(() => navigate('/perfil'), 2000);
-    } else {
-      setMensagem('Seu email ainda não foi verificado.');
-    }
-  };
 
   const excluirConta = async () => {
     const email = sessionStorage.getItem('emailTemp');
@@ -89,9 +114,6 @@ export default function AguardandoVerificacao() {
         )}
 
         <div className="d-grid gap-2 mt-3">
-          <button className="btn btn-outline-primary" onClick={verificar}>
-            Já verifiquei
-          </button>
           <button className="btn btn-outline-secondary" onClick={reenviar}>
             Reenviar e-mail
           </button>
