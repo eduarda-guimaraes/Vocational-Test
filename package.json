@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "axios": "^1.9.0",
+    "axios": "^1.10.0",
     "eslint": "^9.26.0",
     "express": "^5.1.0",
     "firebase": "^11.8.1",
