@@ -13,14 +13,42 @@ export default function Cadastro() {
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
+  const [confirmSenha, setConfirmSenha] = useState('');
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [mostrarConfirmSenha, setMostrarConfirmSenha] = useState(false);
   const [erro, setErro] = useState('');
   const navigate = useNavigate();
+
+  const emailEhValido = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const senhaEhForte = (senha) =>
+    /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{6,}$/.test(senha);
 
   const handleCadastro = async (e) => {
     e.preventDefault();
     setErro('');
 
+    if (!emailEhValido(email)) {
+      setErro('Formato de email inválido.');
+      return;
+    }
+
+    if (senha !== confirmSenha) {
+      setErro('As senhas não coincidem.');
+      return;
+    }
+
+    if (!senhaEhForte(senha)) {
+      setErro('A senha deve ter no mínimo 6 caracteres, incluindo letras, números e um caractere especial.');
+      return;
+    }
+
     try {
+      const methods = await fetchSignInMethodsForEmail(auth, email);
+      if (methods.length > 0) {
+        setErro('Este e-mail já está cadastrado. Faça login ou use outro e-mail.');
+        return;
+      }
+
       const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
       const usuario = userCredential.user;
 
@@ -40,19 +68,7 @@ export default function Cadastro() {
       navigate('/aguardando-verificacao');
     } catch (err) {
       console.error('Erro Firebase:', err.code);
-      switch (err.code) {
-        case 'auth/email-already-in-use':
-          setErro('Este e-mail já está cadastrado.');
-          break;
-        case 'auth/invalid-email':
-          setErro('O e-mail fornecido é inválido.');
-          break;
-        case 'auth/weak-password':
-          setErro('A senha é muito fraca. Tente uma senha mais forte.');
-          break;
-        default:
-          setErro('Erro ao cadastrar. Tente novamente.');
-      }
+      setErro('Erro ao cadastrar. Tente novamente.');
     }
   };
 
@@ -62,7 +78,13 @@ export default function Cadastro() {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
-      const methods = await fetchSignInMethodsForEmail(auth, user.email);
+      if (!user.email) {
+  setErro('O e-mail do usuário não foi encontrado.');
+  return;
+}
+
+const methods = await fetchSignInMethodsForEmail(auth, user.email);
+
       if (methods.includes('password')) {
         setErro('Este e-mail já possui cadastro com senha. Faça login com e-mail e senha.');
         await auth.signOut();
@@ -118,15 +140,42 @@ export default function Cadastro() {
             />
           </div>
 
-          <div className="mb-3">
+          <div className="mb-3 position-relative">
             <input
-              type="password"
+              type={mostrarSenha ? 'text' : 'password'}
               className="form-control"
               placeholder="Senha"
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
               required
             />
+            <button
+              type="button"
+              className="position-absolute top-50 end-0 translate-middle-y me-2"
+              onClick={() => setMostrarSenha(!mostrarSenha)}
+              style={{ backgroundColor: 'transparent', border: 'none' }}
+            >
+              <i className={`bi ${mostrarSenha ? 'bi-eye' : 'bi-eye-slash'}`} style={{ color: '#447EB8' }}></i>
+            </button>
+          </div>
+
+          <div className="mb-3 position-relative">
+            <input
+              type={mostrarConfirmSenha ? 'text' : 'password'}
+              className="form-control"
+              placeholder="Confirmar Senha"
+              value={confirmSenha}
+              onChange={(e) => setConfirmSenha(e.target.value)}
+              required
+            />
+            <button
+              type="button"
+              className="position-absolute top-50 end-0 translate-middle-y me-2"
+              onClick={() => setMostrarConfirmSenha(!mostrarConfirmSenha)}
+              style={{ backgroundColor: 'transparent', border: 'none' }}
+            >
+              <i className={`bi ${mostrarConfirmSenha ? 'bi-eye' : 'bi-eye-slash'}`} style={{ color: '#447EB8' }}></i>
+            </button>
           </div>
 
           {erro && <p className="text-danger mb-3 text-center">{erro}</p>}

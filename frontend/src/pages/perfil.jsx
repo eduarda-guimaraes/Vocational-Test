@@ -2,48 +2,53 @@ import React, { useState, useEffect } from 'react';
 import Header from '../components/header';
 import '../styles/global.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { auth } from '../services/firebase';
-import { signOut } from 'firebase/auth';
+import { auth, db } from '../services/firebase';
+import {
+  signOut,
+  deleteUser,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  fetchSignInMethodsForEmail
+} from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../services/firebase';
+import { doc, getDoc, deleteDoc } from 'firebase/firestore';
+import ConfirmarExclusao from '../pages/ConfirmarExclusao';
 
 function Perfil() {
   const [view, setView] = useState('perfil');
+  const [mostrarConfirmacao, setMostrarConfirmacao] = useState(false);
+  const [temSenha, setTemSenha] = useState(false);
   const [userData, setUserData] = useState({
     nome: '',
     email: '',
     senha: '********',
     foto: '/iconevazio.png'
   });
-
   const [historico, setHistorico] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchUserData = async () => {
       const currentUser = auth.currentUser;
+      if (!currentUser) return;
 
-      if (currentUser) {
-        try {
-          const docRef = doc(db, "usuarios", currentUser.uid);
-          const docSnap = await getDoc(docRef);
-
-          if (docSnap.exists()) {
-            const dados = docSnap.data();
-            const dadosUsuario = {
-              nome: dados.nome,
-              email: currentUser.email,
-              senha: '********',
-              foto: currentUser.photoURL || '/iconevazio.png'
-            };
-            setUserData(dadosUsuario);
-          } else {
-            console.log('Documento não encontrado no Firestore');
-          }
-        } catch (error) {
-          console.error('Erro ao buscar dados do Firestore:', error);
+      try {
+        const docRef = doc(db, "usuarios", currentUser.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const dados = docSnap.data();
+          setUserData({
+            nome: dados.nome,
+            email: currentUser.email,
+            senha: '********',
+            foto: currentUser.photoURL || '/iconevazio.png'
+          });
         }
+
+        const methods = await fetchSignInMethodsForEmail(auth, currentUser.email);
+        setTemSenha(methods.includes('password'));
+      } catch (error) {
+        console.error('Erro ao buscar dados do Firestore:', error);
       }
 
       const dadosSalvos = JSON.parse(localStorage.getItem('historico')) || [];
@@ -59,6 +64,37 @@ function Perfil() {
       navigate('/');
     } catch (error) {
       console.error('Erro ao sair:', error);
+    }
+  };
+
+  const handleExcluirConta = async (senhaDigitada) => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+      if (temSenha) {
+        if (!senhaDigitada) {
+          alert('Senha necessária para excluir a conta.');
+          return;
+        }
+        const credential = EmailAuthProvider.credential(user.email, senhaDigitada);
+        await reauthenticateWithCredential(user, credential);
+      }
+
+      await deleteDoc(doc(db, 'usuarios', user.uid));
+      await deleteUser(user);
+      alert('Conta excluída com sucesso.');
+      navigate('/');
+    } catch (error) {
+      console.error('Erro ao excluir conta:', error);
+      if (error.code === 'auth/wrong-password') {
+        alert('Senha incorreta. Tente novamente.');
+      } else if (error.code === 'auth/requires-recent-login') {
+        alert('Por segurança, faça login novamente antes de excluir sua conta.');
+        handleLogout();
+      } else {
+        alert('Erro ao excluir conta. Tente novamente mais tarde.');
+      }
     }
   };
 
@@ -78,7 +114,9 @@ function Perfil() {
           </button>
         </div>
       );
-    } else if (view === 'historico') {
+    }
+
+    if (view === 'historico') {
       return (
         <div className="card p-4 shadow-sm mx-auto" style={{ maxWidth: '600px' }}>
           <h5 className="card-title text-center">Histórico de Testes</h5>
@@ -128,6 +166,9 @@ function Perfil() {
         <button className="btn-perfil w-100 mb-3" onClick={() => setView('historico')}>
           Histórico de Testes
         </button>
+        <button className="btn btn-outline-danger w-100 mb-3" onClick={() => setMostrarConfirmacao(true)}>
+          Excluir Conta
+        </button>
         <button className="btn btn-danger w-100" onClick={handleLogout}>
           Sair
         </button>
@@ -140,6 +181,13 @@ function Perfil() {
       <Header />
       <div style={{ marginTop: '90px' }} />
       <div className="container">{renderContent()}</div>
+      {mostrarConfirmacao && (
+        <ConfirmarExclusao
+          temSenha={temSenha}
+          onConfirmar={handleExcluirConta}
+          onCancelar={() => setMostrarConfirmacao(false)}
+        />
+      )}
     </>
   );
 }
