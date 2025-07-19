@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
   signInWithEmailAndPassword,
-  signInWithPopup
+  signInWithPopup,
+  fetchSignInMethodsForEmail,
 } from 'firebase/auth';
 import { auth, provider, db } from '../services/firebase';
 import { useNavigate, Link } from 'react-router-dom';
@@ -42,17 +43,27 @@ export default function Login() {
   const loginComGoogle = async () => {
     setErro('');
     try {
+      // Abre popup de login com Google
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
-      // Verifica se o e-mail já está registrado no Firestore
-      const userDoc = await getDoc(doc(db, 'usuarios', user.uid));
-      if (!userDoc.exists()) {
-        setErro('Este e-mail ainda não possui uma conta. Crie uma conta antes de fazer login.');
-        await auth.signOut();
+      // Verifica se o email possui método Google registrado
+      const methods = await fetchSignInMethodsForEmail(auth, user.email);
+      if (!methods.includes('google')) {
+        setErro('Este e-mail não possui uma conta registrada. Cadastre-se antes de fazer login.');
+        await auth.currentUser.delete(); // Remove o usuário criado no Auth
         return;
       }
 
+      // Verifica se existe no Firestore
+      const userDoc = await getDoc(doc(db, 'usuarios', user.uid));
+      if (!userDoc.exists()) {
+        setErro('Este e-mail não possui cadastro no sistema. Cadastre-se antes.');
+        await auth.currentUser.delete(); // Remove o usuário do Auth
+        return;
+      }
+
+      // Tudo certo, segue para o perfil
       navigate('/perfil');
     } catch (error) {
       console.error('Erro no login com Google:', error);

@@ -94,19 +94,24 @@ export default function Cadastro() {
         return;
       }
 
-      // Verifica se já existe no Firestore
-      const userRef = doc(db, "usuarios", user.uid);
-      const userSnap = await getDoc(userRef);
+     const userRef = doc(db, "usuarios", user.uid);
+const userSnap = await getDoc(userRef);
 
-      if (!userSnap.exists()) {
-        await setDoc(userRef, {
-          nome: user.displayName || '',
-          email: user.email,
-          criadoEm: new Date(),
-          emailVerificado: user.emailVerified,
-          foto: user.photoURL || null,
-        });
-      }
+if (userSnap.exists()) {
+  setErro('Este e-mail já possui uma conta. Faça login em vez de tentar se cadastrar.');
+  await auth.signOut();
+  return;
+}
+
+// Redirecionar para tela de "complementar dados" antes de salvar
+navigate('/completar-cadastro-google', {
+  state: {
+    nome: user.displayName || '',
+    email: user.email,
+    photo: user.photoURL || null,
+    uid: user.uid,
+  },
+});
 
       localStorage.setItem('nomeUsuario', user.displayName || '');
       navigate('/definir-senha'); // ou /perfil se já quiser pular a senha
