@@ -85,7 +85,20 @@ function Perfil() {
     if (view === 'info') {
       return (
         <div className="card p-4 shadow-sm mx-auto" style={{ maxWidth: '500px' }}>
-          <h5 className="card-title text-center">Informações Pessoais</h5>
+          <h5 className="card-title text-center mb-4">Informações Pessoais</h5>
+          <div className="text-center mb-4">
+            <img
+              src={userData.foto}
+              alt="Foto de perfil"
+              style={{
+                width: '100px',
+                height: '100px',
+                borderRadius: '50%',
+                objectFit: 'cover',
+                border: '3px solid #447eb8'
+              }}
+            />
+          </div>
           <div className="mb-3"><strong>Nome:</strong> {userData.nome}</div>
           <div className="mb-3"><strong>Email:</strong> {userData.email}</div>
           <div className="mb-4"><strong>Senha:</strong> {userData.senha}</div>
@@ -97,7 +110,8 @@ function Perfil() {
           </button>
         </div>
       );
-    } else if (view === 'editar') {
+    }
+    else if (view === 'editar') {
       return (
         <div className="card p-4 shadow-sm mx-auto" style={{ maxWidth: '500px' }}>
           <h5 className="card-title text-center">Editar Informações</h5>
