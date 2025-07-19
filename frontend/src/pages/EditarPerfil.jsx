@@ -16,13 +16,14 @@ export default function EditarPerfil() {
   const user = auth.currentUser;
   const [nome, setNome] = useState(user?.displayName || '');
   const [email, setEmail] = useState(user?.email || '');
-  const [senha, setSenha] = useState('');
+  const [senhaAtual, setSenhaAtual] = useState('');
+  const [senhaNova, setSenhaNova] = useState('');
   const [erro, setErro] = useState('');
   const [mensagem, setMensagem] = useState('');
+  const [showModal, setShowModal] = useState(false);
   const [senhaExcluir, setSenhaExcluir] = useState('');
   const [temSenha, setTemSenha] = useState(false);
   const [erroExclusao, setErroExclusao] = useState('');
-  const [showModal, setShowModal] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -40,42 +41,68 @@ export default function EditarPerfil() {
     setErro('');
     setMensagem('');
     try {
-      if (nome !== user.displayName) await updateProfile(user, { displayName: nome });
-      if (email !== user.email) await updateEmail(user, email);
-      if (senha.length >= 6) await updatePassword(user, senha);
+      // --- Atualiza email, se mudou ---
+      if (email !== user.email) {
+        if (!senhaAtual) {
+          setErro('Digite a senha atual para alterar o email.');
+          return;
+        }
+        // Reautenticar com credencial de email/senha
+        const cred = EmailAuthProvider.credential(user.email, senhaAtual);
+        await reauthenticateWithCredential(user, cred);
+        // Atualiza email
+        await updateEmail(user, email);
+        // Recarrega o usuário para atualizar auth.currentUser.email
+        await user.reload();
+      }
+
+      // --- Atualiza nome, se mudou ---
+      if (nome !== user.displayName) {
+        await updateProfile(user, { displayName: nome });
+      }
+
+      // --- Atualiza senha, se preenchida ---
+      if (senhaNova.length >= 6) {
+        await updatePassword(user, senhaNova);
+      }
+
       setMensagem('Dados atualizados com sucesso!');
       setTimeout(() => navigate('/perfil'), 1500);
     } catch (error) {
       console.error(error);
-      setErro(error.code === 'auth/requires-recent-login'
-        ? 'Você precisa fazer login novamente para alterar os dados.'
-        : 'Erro ao atualizar dados.'
-      );
+      // Mensagens específicas para cada erro
+      if (error.code === 'auth/wrong-password') {
+        setErro('Senha atual incorreta.');
+      } else if (error.code === 'auth/requires-recent-login') {
+        setErro('Por segurança, faça login novamente para atualizar.');
+      } else if (error.code === 'auth/email-already-in-use') {
+        setErro('Este email já está em uso.');
+      } else {
+        setErro('Erro ao atualizar dados.');
+      }
     }
   };
 
   const handleConfirmExcluir = async () => {
     setErroExclusao('');
-    if (temSenha && !senhaExcluir) {
-      setErroExclusao('Digite sua senha para confirmar.');
-      return;
-    }
-    try {
-      if (temSenha) {
+    if (temSenha) {
+      if (!senhaExcluir) {
+        setErroExclusao('Digite sua senha para confirmar.');
+        return;
+      }
+      // reautenticar para exclusão
+      try {
         const cred = EmailAuthProvider.credential(user.email, senhaExcluir);
         await reauthenticateWithCredential(user, cred);
+      } catch {
+        setErroExclusao('Senha incorreta.');
+        return;
       }
-      await deleteUser(user);
-      await deleteDoc(doc(db, 'usuarios', user.uid));
-      navigate('/');
-    } catch (error) {
-      console.error(error);
-      setErroExclusao(
-        error.code === 'auth/wrong-password' ? 'Senha incorreta.' :
-        error.code === 'auth/requires-recent-login' ? 'Reautenticação necessária. Faça login novamente.' :
-        'Erro ao excluir conta.'
-      );
     }
+    // exclui usuário e documento no Firestore
+    await deleteUser(user);
+    await deleteDoc(doc(db, 'usuarios', user.uid));
+    navigate('/');
   };
 
   return (
@@ -93,6 +120,7 @@ export default function EditarPerfil() {
               placeholder="Nome"
             />
           </div>
+
           <div className="mb-3">
             <input
               type="email"
@@ -102,24 +130,46 @@ export default function EditarPerfil() {
               placeholder="Email"
             />
           </div>
+
           <div className="mb-3">
             <input
               type="password"
               className="form-control"
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
+              value={senhaAtual}
+              onChange={(e) => setSenhaAtual(e.target.value)}
+              placeholder="Senha atual (necessária para email)"
+            />
+          </div>
+
+          <div className="mb-3">
+            <input
+              type="password"
+              className="form-control"
+              value={senhaNova}
+              onChange={(e) => setSenhaNova(e.target.value)}
               placeholder="Nova senha (opcional)"
             />
           </div>
+
           {erro && <p className="text-danger">{erro}</p>}
           {mensagem && <p className="text-success">{mensagem}</p>}
-          <button
-            type="submit"
-            className="btn-perfil w-100"
-            style={{ backgroundColor: '#447EB8', color: '#fff' }}
-          >
-            Salvar alterações
-          </button>
+
+          <div className="d-grid gap-2">
+            <button
+              type="submit"
+              className="btn-perfil"
+              style={{ backgroundColor: '#447EB8', color: '#fff' }}
+            >
+              Salvar e Voltar
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => navigate('/perfil')}
+            >
+              Voltar
+            </button>
+          </div>
         </form>
 
         <hr className="my-4" />
@@ -142,11 +192,11 @@ export default function EditarPerfil() {
                     <button
                       type="button"
                       className="btn-close"
-                      onClick={() => { setShowModal(false); setSenhaExcluir(''); setErroExclusao(''); }}
+                      onClick={() => setShowModal(false)}
                     />
                   </div>
                   <div className="modal-body">
-                    <p>Tem certeza que deseja excluir sua conta? Essa ação não poderá ser desfeita.</p>
+                    <p>Tem certeza que deseja excluir sua conta?</p>
                     {temSenha && (
                       <input
                         type="password"
@@ -161,7 +211,7 @@ export default function EditarPerfil() {
                   <div className="modal-footer">
                     <button
                       className="btn btn-secondary"
-                      onClick={() => { setShowModal(false); setSenhaExcluir(''); setErroExclusao(''); }}
+                      onClick={() => setShowModal(false)}
                     >
                       Cancelar
                     </button>
