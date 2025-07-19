@@ -94,7 +94,14 @@ export default function DefinirSenha() {
           {erro && <p className="text-danger">{erro}</p>}
           {mensagem && <p className="text-success">{mensagem}</p>}
 
-          <button type="submit" className="btn btn-primary w-100 mb-2">Salvar senha</button>
+          <button
+            type="submit"
+            className="btn w-100 mb-2"
+            style={{ backgroundColor: '#447EB8', color: '#fff' }}
+          >
+            Salvar senha
+          </button>
+
 
           <button type="button" onClick={pularEtapa} className="btn btn-outline-secondary w-100">
             Pular por enquanto

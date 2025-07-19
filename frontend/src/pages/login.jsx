@@ -41,15 +41,25 @@ export default function Login() {
 
   const loginComGoogle = async () => {
     setErro('');
+
     try {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
-      // Verifica se o e-mail já está registrado no Firestore
       const userDoc = await getDoc(doc(db, 'usuarios', user.uid));
+
       if (!userDoc.exists()) {
-        setErro('Este e-mail ainda não possui uma conta. Crie uma conta antes de fazer login.');
+        const emailDoGoogle = user.email;
+
         await auth.signOut();
+
+        // Mostra mensagem de erro antes de redirecionar
+        setErro('Este e-mail está vinculado ao Google, mas ainda não possui um perfil no sistema.');
+
+        setTimeout(() => {
+          navigate('/cadastro', { state: { emailGoogle: emailDoGoogle } });
+        }, 5000); // 2 segundos para o usuário ver a mensagem
+
         return;
       }
 
@@ -59,6 +69,7 @@ export default function Login() {
       setErro('Não foi possível fazer login com o Google.');
     }
   };
+
 
   return (
     <div className="container d-flex justify-content-center align-items-center vh-100">
