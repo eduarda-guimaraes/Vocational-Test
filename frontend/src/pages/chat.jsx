@@ -4,25 +4,77 @@ import '../styles/global.css';
 import '../styles/form.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
+import { db } from '../services/firebase';
+import {
+  doc,
+  collection,
+  setDoc,
+  addDoc,
+  getDocs,
+  query,
+  orderBy,
+  serverTimestamp
+} from 'firebase/firestore';
 
 function Chat() {
+  const [chatId, setChatId] = useState(null);
   const [messages, setMessages] = useState([
-    { sender: 'bot', text: 'Olá! Vamos começar seu teste vocacional. Me diga com o que você mais se identifica ou tem interesse profissional.' }
+    {
+      sender: 'bot',
+      text: 'Olá! Bem-vindo ao teste vocacional. Vou fazer algumas perguntas sobre seus interesses e habilidades e, no final, sugerir as áreas de carreira ideais para você. Vamos começar! Com o que você mais se identifica?'
+    }
   ]);
   const [input, setInput] = useState('');
 
   useEffect(() => {
-    localStorage.removeItem('historico');
+    let id = localStorage.getItem('chatId');
+    if (!id) {
+      id = 'chat-' + Date.now();
+      localStorage.setItem('chatId', id);
+      criarChatNoFirestore(id);
+    } else {
+      carregarMensagensDoFirestore(id);
+    }
+    setChatId(id);
   }, []);
+
+  // Cria o documento do chat e salva a mensagem inicial
+  const criarChatNoFirestore = async (id) => {
+    try {
+      const chatRef = doc(db, 'chats', id);
+      await setDoc(chatRef, { createdAt: serverTimestamp() });
+      const msgsRef = collection(chatRef, 'messages');
+      await addDoc(msgsRef, {
+        sender: 'bot',
+        text: messages[0].text,
+        timestamp: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Erro ao criar chat no Firestore:', error);
+    }
+  };
+
+  // Recupera mensagens ordenadas por timestamp (sobrescreve o estado)
+  const carregarMensagensDoFirestore = async (id) => {
+    try {
+      const msgsRef = collection(db, 'chats', id, 'messages');
+      const q = query(msgsRef, orderBy('timestamp'));
+      const snapshot = await getDocs(q);
+      const loaded = snapshot.docs.map(doc => doc.data());
+      // Se não houver mensagens, mantém a saudação inicial
+      if (loaded.length > 0) setMessages(loaded);
+    } catch (error) {
+      console.error('Erro ao carregar mensagens:', error);
+    }
+  };
 
   const enviarParaIA = async (mensagem) => {
     try {
       const response = await fetch('http://localhost:5000/api/chat-vocacional', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mensagem })
+        body: JSON.stringify({ mensagem, chat_id: chatId })
       });
-
       const data = await response.json();
       return data.resposta || 'Não consegui entender, pode reformular?';
     } catch (error) {
@@ -31,16 +83,31 @@ function Chat() {
     }
   };
 
+  const salvarMensagemNoFirestore = async (msg) => {
+    try {
+      const chatRef = doc(db, 'chats', chatId);
+      const msgsRef = collection(chatRef, 'messages');
+      await addDoc(msgsRef, {
+        sender: msg.sender,
+        text: msg.text,
+        timestamp: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Erro ao salvar mensagem:', error);
+    }
+  };
+
   const handleSend = async () => {
     if (!input.trim()) return;
 
     const userMessage = { sender: 'user', text: input };
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages(prev => [...prev, userMessage]);
+    await salvarMensagemNoFirestore(userMessage);
 
     const respostaIA = await enviarParaIA(input);
-
     const botMessage = { sender: 'bot', text: respostaIA };
-    setMessages((prev) => [...prev, botMessage]);
+    setMessages(prev => [...prev, botMessage]);
+    await salvarMensagemNoFirestore(botMessage);
 
     setInput('');
   };
