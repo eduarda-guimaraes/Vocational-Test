@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'; 
 import { Link, useLocation } from 'react-router-dom';
 import { auth } from '../services/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '../styles/global.css';
 import '../styles/form.css';
@@ -11,10 +12,15 @@ function Header() {
   const [fotoPerfil, setFotoPerfil] = useState('/iconevazio.png');
 
   useEffect(() => {
-    const user = auth.currentUser;
-    if (user && user.photoURL) {
-      setFotoPerfil(user.photoURL);
-    }
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user?.photoURL) {
+        setFotoPerfil(user.photoURL);
+      } else {
+        setFotoPerfil('/iconevazio.png');
+      }
+    });
+
+    return () => unsubscribe(); // limpa o listener ao desmontar
   }, []);
 
   return (
