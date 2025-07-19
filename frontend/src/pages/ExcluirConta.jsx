@@ -24,7 +24,8 @@ export default function ExcluirConta() {
 
       try {
         const methods = await fetchSignInMethodsForEmail(auth, user.email);
-        setTemSenha(methods.includes('password'));
+        const temMetodoSenha = methods.includes('password');
+        setTemSenha(temMetodoSenha);
       } catch (error) {
         console.error('Erro ao verificar métodos de login:', error);
       } finally {
@@ -45,7 +46,7 @@ export default function ExcluirConta() {
     try {
       if (temSenha) {
         if (!senha || senha.length < 6) {
-          setErro('Informe sua senha para confirmar.');
+          setErro('Digite sua senha corretamente para confirmar a exclusão.');
           setConfirmando(false);
           return;
         }
@@ -62,8 +63,10 @@ export default function ExcluirConta() {
       console.error('Erro ao excluir conta:', error);
       if (error.code === 'auth/wrong-password') {
         setErro('Senha incorreta. Tente novamente.');
+      } else if (error.code === 'auth/requires-recent-login') {
+        setErro('Faça login novamente para confirmar esta ação.');
       } else {
-        setErro('Não foi possível excluir a conta. Tente novamente.');
+        setErro('Não foi possível excluir a conta. Tente novamente mais tarde.');
       }
     } finally {
       setConfirmando(false);
