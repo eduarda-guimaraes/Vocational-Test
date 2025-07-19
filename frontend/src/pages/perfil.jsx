@@ -89,7 +89,7 @@ function Perfil() {
           <div className="mb-3"><strong>Nome:</strong> {userData.nome}</div>
           <div className="mb-3"><strong>Email:</strong> {userData.email}</div>
           <div className="mb-4"><strong>Senha:</strong> {userData.senha}</div>
-          <button className="btn-perfil w-100 mb-3" onClick={() => { setEditData(userData); setView('editar'); }}>
+          <button className="btn-perfil w-100 mb-3" onClick={() => navigate('/editar-perfil')}>
             Editar Informações
           </button>
           <button className="btn-perfil w-100" onClick={() => setView('perfil')}>
