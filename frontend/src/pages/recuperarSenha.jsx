@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { sendPasswordResetEmail } from 'firebase/auth';
+import { sendPasswordResetEmail, fetchSignInMethodsForEmail } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { useNavigate } from 'react-router-dom';
 
@@ -15,10 +15,17 @@ export default function RecuperarSenha() {
     setSucesso('');
 
     try {
+      const methods = await fetchSignInMethodsForEmail(auth, email);
+      if (!methods.includes('password')) {
+        setErro('Este e-mail não está associado a uma conta com senha.');
+        return;
+      }
+
       await sendPasswordResetEmail(auth, email);
       setSucesso('Link de recuperação enviado para o seu e-mail.');
       setTimeout(() => navigate('/login'), 5000);
     } catch (err) {
+      console.error('Erro ao enviar link de recuperação:', err);
       setErro('Erro ao enviar o link. Verifique o e-mail inserido.');
     }
   };
@@ -48,14 +55,6 @@ export default function RecuperarSenha() {
             Enviar
           </button>
         </form>
-        <div className="text-center">
-          <p>
-            Lembrou sua senha?{' '}
-            <a href="/login" className="btn btn-link p-0" style={{ color: '#447EB8' }}>
-              Voltar para Login
-            </a>
-          </p>
-        </div>
       </div>
     </div>
   );

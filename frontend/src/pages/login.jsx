@@ -40,36 +40,44 @@ export default function Login() {
     setMostrarSenha(!mostrarSenha);
   };
 
-  const loginComGoogle = async () => {
-    setErro('');
-    try {
-      // Abre popup de login com Google
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
+const loginComGoogle = async () => {
+  setErro('');
 
-      // Verifica se o email possui método Google registrado
-      const methods = await fetchSignInMethodsForEmail(auth, user.email);
-      if (!methods.includes('google')) {
-        setErro('Este e-mail não possui uma conta registrada. Cadastre-se antes de fazer login.');
-        await auth.currentUser.delete(); // Remove o usuário criado no Auth
-        return;
-      }
+  try {
+    const result = await signInWithPopup(auth, provider);
+    const user = result.user;
 
-      // Verifica se existe no Firestore
-      const userDoc = await getDoc(doc(db, 'usuarios', user.uid));
-      if (!userDoc.exists()) {
-        setErro('Este e-mail não possui cadastro no sistema. Cadastre-se antes.');
-        await auth.currentUser.delete(); // Remove o usuário do Auth
-        return;
-      }
+    // Verifica se o e-mail já está associado a outro método de login
+    const methods = await fetchSignInMethodsForEmail(auth, user.email);
+    
+    // Se o usuário tiver login com senha, bloqueia o login com Google
+    if (methods.includes('password') && !methods.includes('google.com')) {
+      setErro('Este e-mail já está cadastrado com senha. Faça login com e-mail e senha.');
+      await auth.signOut(); // importante para deslogar o Google
+      return;
+    }
 
-      // Tudo certo, segue para o perfil
-      navigate('/perfil');
-    } catch (error) {
-      console.error('Erro no login com Google:', error);
+    // Verifica se o usuário já existe no Firestore
+    const userDoc = await getDoc(doc(db, 'usuarios', user.uid));
+    if (!userDoc.exists()) {
+      setErro('Sua conta do Google não está vinculada a um perfil. Crie uma conta ou utilize outro login.');
+      await auth.signOut(); // desconecta o usuário
+      return;
+    }
+
+
+    // Caso já tenha cadastro, redireciona normalmente
+    navigate('/perfil');
+  } catch (error) {
+    console.error('Erro no login com Google:', error);
+    if (error.code === 'auth/account-exists-with-different-credential') {
+      setErro('Este e-mail já está vinculado a outra forma de login. Use seu e-mail e senha.');
+    } else {
       setErro('Não foi possível fazer login com o Google.');
     }
-  };
+  }
+};
+
 
   return (
     <div className="container d-flex justify-content-center align-items-center vh-100">

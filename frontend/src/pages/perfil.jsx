@@ -7,6 +7,8 @@ import { signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
+import { Link } from 'react-router-dom';
+
 
 
 function Perfil() {
@@ -173,6 +175,9 @@ function Perfil() {
           <button className="btn btn-danger w-100" onClick={handleLogout}>
             Sair
           </button>
+           <Link to="/excluir-conta" className="btn btn-outline-danger w-100">
+          Excluir Conta
+        </Link>
         </div>
     );
 
