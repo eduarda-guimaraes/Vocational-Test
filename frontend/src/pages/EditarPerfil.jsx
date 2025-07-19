@@ -110,6 +110,21 @@ export default function EditarPerfil() {
       <div className="card p-4 shadow-sm" style={{ maxWidth: '450px', width: '100%' }}>
         <h4 className="mb-4 text-center">Editar Perfil</h4>
 
+        {/* FOTO DE PERFIL */}
+        <div className="text-center mb-4">
+          <img
+            src={user?.photoURL || '/iconevazio.png'}
+            alt="Foto de perfil"
+            style={{
+              width: '100px',
+              height: '100px',
+              borderRadius: '50%',
+              objectFit: 'cover',
+              border: '3px solid #447eb8'
+            }}
+          />
+        </div>
+
         <form onSubmit={handleSalvar}>
           <div className="mb-3">
             <input
@@ -181,6 +196,7 @@ export default function EditarPerfil() {
           Excluir minha conta
         </button>
 
+        {/* Modal de exclusão */}
         {showModal && (
           <>
             <div className="modal-backdrop fade show"></div>
