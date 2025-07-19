@@ -4,7 +4,7 @@ import '../styles/global.css';
 import '../styles/form.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
-import { db } from '../services/firebase';
+import { db, auth } from '../services/firebase';
 import {
   doc,
   collection,
@@ -15,6 +15,7 @@ import {
   orderBy,
   serverTimestamp
 } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 
 function Chat() {
   const [chatId, setChatId] = useState(null);
@@ -27,44 +28,39 @@ function Chat() {
   const [input, setInput] = useState('');
 
   useEffect(() => {
-    let id = localStorage.getItem('chatId');
-    if (!id) {
-      id = 'chat-' + Date.now();
-      localStorage.setItem('chatId', id);
-      criarChatNoFirestore(id);
-    } else {
-      carregarMensagensDoFirestore(id);
-    }
-    setChatId(id);
+    const unsubscribe = onAuthStateChanged(auth, user => {
+      if (user) {
+        const uid = user.uid;
+        setChatId(uid);
+        inicializarChatFirestore(uid);
+      } else {
+        console.log('Usuário não autenticado');
+      }
+    });
+    return unsubscribe;
   }, []);
 
-  // Cria o documento do chat e salva a mensagem inicial
-  const criarChatNoFirestore = async (id) => {
+  const inicializarChatFirestore = async (uid) => {
     try {
-      const chatRef = doc(db, 'chats', id);
-      await setDoc(chatRef, { createdAt: serverTimestamp() });
+      const chatRef = doc(db, 'chats', uid);
       const msgsRef = collection(chatRef, 'messages');
-      await addDoc(msgsRef, {
-        sender: 'bot',
-        text: messages[0].text,
-        timestamp: serverTimestamp()
-      });
+      const snapshot = await getDocs(query(msgsRef, orderBy('timestamp')));
+      if (snapshot.empty) {
+        // cria o documento de chat com o UID do usuário e salva a saudação
+        await setDoc(chatRef, { userId: uid, createdAt: serverTimestamp() });
+        await addDoc(msgsRef, {
+          sender: 'bot',
+          text: messages[0].text,
+          timestamp: serverTimestamp()
+        });
+        setMessages([messages[0]]);
+      } else {
+        // carrega histórico existente
+        const loaded = snapshot.docs.map(d => d.data());
+        setMessages(loaded);
+      }
     } catch (error) {
-      console.error('Erro ao criar chat no Firestore:', error);
-    }
-  };
-
-  // Recupera mensagens ordenadas por timestamp (sobrescreve o estado)
-  const carregarMensagensDoFirestore = async (id) => {
-    try {
-      const msgsRef = collection(db, 'chats', id, 'messages');
-      const q = query(msgsRef, orderBy('timestamp'));
-      const snapshot = await getDocs(q);
-      const loaded = snapshot.docs.map(doc => doc.data());
-      // Se não houver mensagens, mantém a saudação inicial
-      if (loaded.length > 0) setMessages(loaded);
-    } catch (error) {
-      console.error('Erro ao carregar mensagens:', error);
+      console.error('Erro ao inicializar chat no Firestore:', error);
     }
   };
 
@@ -99,7 +95,6 @@ function Chat() {
 
   const handleSend = async () => {
     if (!input.trim()) return;
-
     const userMessage = { sender: 'user', text: input };
     setMessages(prev => [...prev, userMessage]);
     await salvarMensagemNoFirestore(userMessage);
@@ -157,7 +152,6 @@ function Chat() {
             </div>
           ))}
         </div>
-
         <div className="d-flex mt-4">
           <input
             type="text"
@@ -172,9 +166,7 @@ function Chat() {
               marginRight: '10px'
             }}
           />
-          <button
-            className="btn-enviar btn btn-primary rounded-pill px-4"
-            onClick={handleSend}>
+          <button className="btn-enviar btn btn-primary rounded-pill px-4" onClick={handleSend}>
             Enviar
           </button>
         </div>
