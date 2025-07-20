@@ -5,16 +5,51 @@ import '../styles/form.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 
+import { auth, db } from '../services/firebase';
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
+
 function Chat() {
   const [messages, setMessages] = useState([
-    { sender: 'bot', text: 'Olá! Vamos começar seu teste vocacional. Me diga com o que você mais se identifica ou tem interesse profissional.' }
+    {
+      sender: 'bot',
+      text: 'Olá! Vamos começar seu teste vocacional. Me diga com o que você mais se identifica ou tem interesse profissional.'
+    }
   ]);
   const [input, setInput] = useState('');
+  const [chatId, setChatId] = useState(null);
+  const [userId, setUserId] = useState(null);
 
+  // Verifica o usuário e cria o chat
   useEffect(() => {
-    localStorage.removeItem('historico');
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        console.warn('Usuário não autenticado.');
+        return;
+      }
+
+      setUserId(user.uid);
+
+      try {
+        const chatRef = await addDoc(collection(db, 'chats'), {
+          usuario_id: user.uid,
+          criado_em: serverTimestamp(),
+        });
+
+        setChatId(chatRef.id);
+      } catch (error) {
+        console.error('Erro ao criar chat no Firestore:', error);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
+  // Envia mensagem para a IA
   const enviarParaIA = async (mensagem) => {
     try {
       const response = await fetch('http://localhost:5000/api/chat-vocacional', {
@@ -31,16 +66,53 @@ function Chat() {
     }
   };
 
+  // Salva mensagem no Firestore
+  const salvarMensagem = async (autor, conteudo) => {
+    if (!chatId || !userId) return;
+
+    try {
+      const mensagensRef = collection(db, 'chats', chatId, 'mensagens');
+      await addDoc(mensagensRef, {
+        autor,
+        conteudo,
+        criada_em: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error('Erro ao salvar mensagem:', error);
+    }
+  };
+
+  // Salva resultado vocacional no Firestore
+  const salvarResultado = async (areas) => {
+    if (!chatId || !userId) return;
+
+    try {
+      const resultadosRef = collection(db, 'chats', chatId, 'resultados');
+      await addDoc(resultadosRef, {
+        areas,
+        gerado_em: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error('Erro ao salvar resultado:', error);
+    }
+  };
+
+  // Envia a mensagem e salva tudo
   const handleSend = async () => {
     if (!input.trim()) return;
 
     const userMessage = { sender: 'user', text: input };
     setMessages((prev) => [...prev, userMessage]);
+    await salvarMensagem('user', input);
 
     const respostaIA = await enviarParaIA(input);
-
     const botMessage = { sender: 'bot', text: respostaIA };
     setMessages((prev) => [...prev, botMessage]);
+    await salvarMensagem('bot', respostaIA);
+
+    if (respostaIA.toLowerCase().includes('suas áreas recomendadas são')) {
+      await salvarResultado(respostaIA);
+    }
 
     setInput('');
   };
