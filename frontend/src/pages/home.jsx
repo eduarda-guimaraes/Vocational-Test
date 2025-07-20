@@ -26,7 +26,6 @@ function Home() {
 
       <img src="/banner.png" alt="banner demonstrativo" className="w-100" />
 
-    {/* Cards sobre o projeto */}
 <div className="container my-5">
   <div className="row text-center">
     <div className="col-md-4 mb-4">
@@ -114,8 +113,6 @@ function Home() {
     </div>
   </div>
 </div>
-
-      {/* FAQ */}
       <div className="container my-5" id="scrollspyHeading3">
         <h3 className="text-center">Dúvidas Frequentes:</h3>
         <p className="text-center">Aqui estão algumas perguntas comuns sobre o Vocational Test:</p>
