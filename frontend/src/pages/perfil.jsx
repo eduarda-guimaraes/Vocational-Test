@@ -94,7 +94,7 @@ function Perfil() {
             >
               Editar Informações
             </button>
-            <button className="btn-perfil w-100" onClick={() => setView('perfil')}>
+            <button className="btn btn-secondary w-100" onClick={() => setView('perfil')}>
               Voltar
             </button>
           </div>
@@ -121,7 +121,7 @@ function Perfil() {
               ))}
             </ul>
           )}
-          <button className="btn-perfil w-100 mt-3" onClick={() => setView('perfil')}>
+          <button className="btn btn-secondary w-100 mt-3" onClick={() => setView('perfil')}>
             Voltar
           </button>
         </div>
