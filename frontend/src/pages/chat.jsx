@@ -4,25 +4,73 @@ import '../styles/global.css';
 import '../styles/form.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
+import { db, auth } from '../services/firebase';
+import {
+  doc,
+  collection,
+  setDoc,
+  addDoc,
+  getDocs,
+  query,
+  orderBy,
+  serverTimestamp
+} from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 
 function Chat() {
+  const [chatId, setChatId] = useState(null);
   const [messages, setMessages] = useState([
-    { sender: 'bot', text: 'Olá! Vamos começar seu teste vocacional. Me diga com o que você mais se identifica ou tem interesse profissional.' }
+    {
+      sender: 'bot',
+      text: 'Olá! Bem-vindo ao teste vocacional. Vou fazer algumas perguntas sobre seus interesses e habilidades e, no final, sugerir as áreas de carreira ideais para você. Vamos começar! Com o que você mais se identifica?'
+    }
   ]);
   const [input, setInput] = useState('');
 
   useEffect(() => {
-    localStorage.removeItem('historico');
+    const unsubscribe = onAuthStateChanged(auth, user => {
+      if (user) {
+        const uid = user.uid;
+        setChatId(uid);
+        inicializarChatFirestore(uid);
+      } else {
+        console.log('Usuário não autenticado');
+      }
+    });
+    return unsubscribe;
   }, []);
+
+  const inicializarChatFirestore = async (uid) => {
+    try {
+      const chatRef = doc(db, 'chats', uid);
+      const msgsRef = collection(chatRef, 'messages');
+      const snapshot = await getDocs(query(msgsRef, orderBy('timestamp')));
+      if (snapshot.empty) {
+        // cria o documento de chat com o UID do usuário e salva a saudação
+        await setDoc(chatRef, { userId: uid, createdAt: serverTimestamp() });
+        await addDoc(msgsRef, {
+          sender: 'bot',
+          text: messages[0].text,
+          timestamp: serverTimestamp()
+        });
+        setMessages([messages[0]]);
+      } else {
+        // carrega histórico existente
+        const loaded = snapshot.docs.map(d => d.data());
+        setMessages(loaded);
+      }
+    } catch (error) {
+      console.error('Erro ao inicializar chat no Firestore:', error);
+    }
+  };
 
   const enviarParaIA = async (mensagem) => {
     try {
       const response = await fetch('http://localhost:5000/api/chat-vocacional', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mensagem })
+        body: JSON.stringify({ mensagem, chat_id: chatId })
       });
-
       const data = await response.json();
       return data.resposta || 'Não consegui entender, pode reformular?';
     } catch (error) {
@@ -31,16 +79,30 @@ function Chat() {
     }
   };
 
+  const salvarMensagemNoFirestore = async (msg) => {
+    try {
+      const chatRef = doc(db, 'chats', chatId);
+      const msgsRef = collection(chatRef, 'messages');
+      await addDoc(msgsRef, {
+        sender: msg.sender,
+        text: msg.text,
+        timestamp: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Erro ao salvar mensagem:', error);
+    }
+  };
+
   const handleSend = async () => {
     if (!input.trim()) return;
-
     const userMessage = { sender: 'user', text: input };
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages(prev => [...prev, userMessage]);
+    await salvarMensagemNoFirestore(userMessage);
 
     const respostaIA = await enviarParaIA(input);
-
     const botMessage = { sender: 'bot', text: respostaIA };
-    setMessages((prev) => [...prev, botMessage]);
+    setMessages(prev => [...prev, botMessage]);
+    await salvarMensagemNoFirestore(botMessage);
 
     setInput('');
   };
@@ -90,7 +152,6 @@ function Chat() {
             </div>
           ))}
         </div>
-
         <div className="d-flex mt-4">
           <input
             type="text"
@@ -105,9 +166,7 @@ function Chat() {
               marginRight: '10px'
             }}
           />
-          <button
-            className="btn-enviar btn btn-primary rounded-pill px-4"
-            onClick={handleSend}>
+          <button className="btn-enviar btn btn-primary rounded-pill px-4" onClick={handleSend}>
             Enviar
           </button>
         </div>

@@ -6,8 +6,9 @@ import Perfil from './pages/perfil';
 import Home from './pages/home';
 import Chat from './pages/chat';
 import RecuperarSenha from './pages/recuperarSenha';
-import AguardandoVerificacao from '/pages/AguardandoVerificacao';
-
+import AguardandoVerificacao from './pages/AguardandoVerificacao';
+import DefinirSenha from './pages/DefinirSenha';       // ✅ novo import
+import EditarPerfil from './pages/EditarPerfil';       // ✅ novo import
 import ProtectedRoute from './components/ProtectedRoute';
 import Header from './components/header';
 import Footer from './components/footer';
@@ -23,11 +24,20 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/cadastro" element={<Cadastro />} />
           <Route path="/aguardando-verificacao" element={<AguardandoVerificacao />} />
+          <Route path="/definir-senha" element={<DefinirSenha />} />          {/* ✅ nova rota */}
           <Route
             path="/perfil"
             element={
               <ProtectedRoute>
                 <Perfil />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/editar-perfil"
+            element={
+              <ProtectedRoute>
+                <EditarPerfil />
               </ProtectedRoute>
             }
           />

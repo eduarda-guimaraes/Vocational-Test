@@ -1,7 +1,6 @@
-// src/services/firebase.js (ou src/firebase.js)
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
 
 // Configuração do Firebase do seu projeto
 const firebaseConfig = {
@@ -20,7 +19,10 @@ const app = initializeApp(firebaseConfig);
 // Inicializa e exporta o Firestore
 const db = getFirestore(app);
 
-// Inicializa e exporta o Auth 🔐
+// Inicializa e exporta o Auth 
 const auth = getAuth(app);
 
-export { db, auth };
+// Provedor do Google para login com popup
+const provider = new GoogleAuthProvider();
+
+export { db, auth, provider };

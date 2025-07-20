@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { auth } from '../services/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '../styles/global.css';
 import '../styles/form.css';
@@ -8,7 +10,25 @@ import { useUser } from './contexts/UserContext';
 function Header() {
   const location = useLocation();
   const pathname = location.pathname;
+
   const { userData } = useUser();
+  const [fotoPerfil, setFotoPerfil] = useState('/iconevazio.png');
+
+  useEffect(() => {
+    if (userData?.fotoPerfil) {
+      setFotoPerfil(userData.fotoPerfil);
+    } else {
+      const unsubscribe = onAuthStateChanged(auth, (user) => {
+        if (user?.photoURL) {
+          setFotoPerfil(user.photoURL);
+        } else {
+          setFotoPerfil('/iconevazio.png');
+        }
+      });
+
+      return () => unsubscribe(); // limpa o listener ao desmontar
+    }
+  }, [userData]);
 
   return (
     <header>
@@ -22,17 +42,27 @@ function Header() {
             <Link className={`nav-link mx-3 ${pathname === '/home' ? 'active' : ''}`} to="/home">Home</Link>
             <Link className={`nav-link mx-3 ${pathname === '/chat' ? 'active' : ''}`} to="/chat">Chat</Link>
             <Link className={`nav-link nav-perfil mx-3 ${pathname === '/perfil' ? 'active' : ''}`} to="/perfil">
-              <img
-                src={userData.fotoPerfil || '/iconevazio.png'}
-                alt="Perfil"
+              <div
+                className="perfil-icon"
                 style={{
                   width: '40px',
                   height: '40px',
                   borderRadius: '50%',
-                  objectFit: 'cover',
+                  overflow: 'hidden',
+                  backgroundColor: '#e0e0e0',
                   border: '2px solid #447eb8'
                 }}
-              />
+              >
+                <img
+                  src={fotoPerfil}
+                  alt="Perfil"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover'
+                  }}
+                />
+              </div>
             </Link>
           </div>
         </div>
