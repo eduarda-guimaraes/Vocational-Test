@@ -29,9 +29,11 @@ export default function EditarPerfil() {
   const [erroExcluir, setErroExcluir] = useState('');
   const [mostrarSenhaExcluir, setMostrarSenhaExcluir] = useState(false);
 
-  // Foto de perfil
   const [fotoPreview, setFotoPreview] = useState(user?.photoURL || '/iconevazio.png');
   const [novaFoto, setNovaFoto] = useState(null);
+
+  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
   const handleFotoChange = (e) => {
     const file = e.target.files[0];
@@ -43,6 +45,21 @@ export default function EditarPerfil() {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const uploadParaCloudinary = async (base64Image) => {
+    const formData = new FormData();
+    formData.append('file', base64Image);
+    formData.append('upload_preset', uploadPreset);
+    formData.append('cloud_name', cloudName);
+
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await response.json();
+    return data.secure_url;
   };
 
   const handleSalvar = async (e) => {
@@ -57,7 +74,6 @@ export default function EditarPerfil() {
     const fotoAlterada = novaFoto !== null;
 
     try {
-      // Reautenticação
       if (isSenha) {
         if (!senhaAtual || senhaAtual.length < 6) {
           setErro('Digite sua senha atual para confirmar as alterações.');
@@ -69,15 +85,22 @@ export default function EditarPerfil() {
         await reauthenticateWithPopup(user, provider);
       }
 
-      if (nomeAlterado || fotoAlterada) {
+      let novaFotoURL = null;
+      if (fotoAlterada) {
+        novaFotoURL = await uploadParaCloudinary(novaFoto);
+      }
+
+      if (nomeAlterado || novaFotoURL) {
         await updateProfile(user, {
           displayName: nome,
-          ...(fotoAlterada && { photoURL: novaFoto }),
+          ...(novaFotoURL && { photoURL: novaFotoURL }),
         });
 
-        // Atualiza nome no Firestore também
         const docRef = doc(db, 'usuarios', user.uid);
-        await updateDoc(docRef, { nome });
+        await updateDoc(docRef, {
+          nome,
+          ...(novaFotoURL && { fotoPerfil: novaFotoURL }),
+        });
       }
 
       if (emailAlterado) {
