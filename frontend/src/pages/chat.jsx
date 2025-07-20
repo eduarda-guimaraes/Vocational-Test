@@ -24,7 +24,6 @@ function Chat() {
   const [chatId, setChatId] = useState(null);
   const [userId, setUserId] = useState(null);
 
-  // Verifica o usuário e cria o chat
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -51,7 +50,6 @@ function Chat() {
     return () => unsubscribe();
   }, []);
 
-  // Envia mensagem para a IA
   const enviarParaIA = async (mensagem) => {
     try {
       const response = await fetch('http://localhost:5000/api/chat-vocacional', {
@@ -68,7 +66,6 @@ function Chat() {
     }
   };
 
-  // Salva mensagem no Firestore
   const salvarMensagem = async (autor, conteudo) => {
     if (!chatId || !userId) {
       console.warn('chatId ou userId não definidos.');
@@ -89,7 +86,6 @@ function Chat() {
     }
   };
 
-  // Salva resultado vocacional no Firestore
   const salvarResultado = async (areas) => {
     if (!chatId || !userId) return;
 
@@ -105,7 +101,6 @@ function Chat() {
     }
   };
 
-  // Envia a mensagem e salva tudo
   const handleSend = async () => {
     if (!input.trim() || !chatId) return;
 
@@ -150,10 +145,25 @@ function Chat() {
                   fontSize: '20px',
                   textAlign: 'center',
                   lineHeight: '40px',
-                  margin: '0 10px'
+                  margin: '0 10px',
+                  overflow: 'hidden'
                 }}
               >
-                <i className={`bi ${msg.sender === 'user' ? 'bi-person' : 'bi-emoji-smile'} mx-auto`}></i>
+                {msg.sender === 'user' ? (
+                  <i className="bi bi-person mx-auto"></i>
+                ) : (
+                  <img
+                    src="/logo.png"
+                    alt="Bot"
+                    style={{
+                      width: '30px',
+                      height: '30px',
+                      borderRadius: '50%',
+                      objectFit: 'contain',
+                      margin: 'auto'
+                    }}
+                  />
+                )}
               </div>
               <div
                 style={{
