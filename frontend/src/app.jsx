@@ -7,8 +7,9 @@ import Home from './pages/home';
 import Chat from './pages/chat';
 import RecuperarSenha from './pages/recuperarSenha';
 import AguardandoVerificacao from './pages/aguardandoVerificacao';
-import DefinirSenha from './pages/DefinirSenha';       // ✅ novo import
-import EditarPerfil from './pages/EditarPerfil';       // ✅ novo import
+import DefinirSenha from './pages/DefinirSenha';       
+import EditarPerfil from './pages/EditarPerfil';       
+import Historico from './pages/Historico';
 
 import ProtectedRoute from './components/ProtectedRoute';
 import Header from './components/header';
@@ -25,7 +26,8 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/cadastro" element={<Cadastro />} />
           <Route path="/aguardando-verificacao" element={<AguardandoVerificacao />} />
-          <Route path="/definir-senha" element={<DefinirSenha />} />          {/* ✅ nova rota */}
+          <Route path="/definir-senha" element={<DefinirSenha />} />       
+          <Route path="/historico" element={<Historico />} />
           <Route
             path="/perfil"
             element={

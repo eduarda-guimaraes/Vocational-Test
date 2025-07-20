@@ -9,7 +9,7 @@ import { auth, db } from '../services/firebase';
 import {
   collection,
   addDoc,
-  serverTimestamp,
+  serverTimestamp
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -24,7 +24,7 @@ function Chat() {
   const [chatId, setChatId] = useState(null);
   const [userId, setUserId] = useState(null);
 
-  // Verifica o usuário e cria o chat
+  // Verifica usuário autenticado
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -49,7 +49,6 @@ function Chat() {
     return () => unsubscribe();
   }, []);
 
-  // Envia mensagem para a IA
   const enviarParaIA = async (mensagem) => {
     try {
       const response = await fetch('http://localhost:5000/api/chat-vocacional', {
@@ -66,7 +65,6 @@ function Chat() {
     }
   };
 
-  // Salva mensagem no Firestore
   const salvarMensagem = async (autor, conteudo) => {
     if (!chatId || !userId) return;
 
@@ -82,22 +80,20 @@ function Chat() {
     }
   };
 
-  // Salva resultado vocacional no Firestore
-  const salvarResultado = async (areas) => {
-    if (!chatId || !userId) return;
+  const salvarResultado = async (texto) => {
+    if (!userId) return;
 
     try {
-      const resultadosRef = collection(db, 'chats', chatId, 'resultados');
-      await addDoc(resultadosRef, {
-        areas,
-        gerado_em: serverTimestamp(),
+      await addDoc(collection(db, 'historico'), {
+        uid: userId,
+        resultado: texto,
+        criadoEm: serverTimestamp(), // ESSENCIAL para funcionar o histórico
       });
     } catch (error) {
-      console.error('Erro ao salvar resultado:', error);
+      console.error('Erro ao salvar no histórico:', error);
     }
   };
 
-  // Envia a mensagem e salva tudo
   const handleSend = async () => {
     if (!input.trim()) return;
 
@@ -110,9 +106,7 @@ function Chat() {
     setMessages((prev) => [...prev, botMessage]);
     await salvarMensagem('bot', respostaIA);
 
-    if (respostaIA.toLowerCase().includes('suas áreas recomendadas são')) {
-      await salvarResultado(respostaIA);
-    }
+    await salvarResultado(respostaIA); // salva sempre a resposta
 
     setInput('');
   };
