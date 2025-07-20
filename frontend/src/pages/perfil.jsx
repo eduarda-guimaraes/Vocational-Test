@@ -16,6 +16,7 @@ function Perfil() {
     foto: '/iconevazio.png'
   });
   const [historico, setHistorico] = useState([]);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -54,7 +55,7 @@ function Perfil() {
     }
   }, [location.state]);
 
-  const handleLogout = async () => {
+  const confirmarLogout = async () => {
     try {
       await signOut(auth);
       navigate('/');
@@ -132,7 +133,7 @@ function Perfil() {
         <button className="btn-perfil w-100 mb-3" onClick={() => setView('historico')}>
           Histórico de Testes
         </button>
-        <button className="btn btn-danger w-100" onClick={handleLogout}>
+        <button className="btn btn-danger w-100" onClick={() => setShowLogoutModal(true)}>
           Sair
         </button>
       </div>
@@ -144,6 +145,30 @@ function Perfil() {
       <Header />
       <div style={{ marginTop: '90px' }} />
       <div className="container">{renderContent()}</div>
+
+      {showLogoutModal && (
+        <div className="modal d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Confirmar saída</h5>
+                <button type="button" className="btn-close" onClick={() => setShowLogoutModal(false)}></button>
+              </div>
+              <div className="modal-body">
+                <p>Tem certeza de que deseja sair da sua conta?</p>
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setShowLogoutModal(false)}>
+                  Cancelar
+                </button>
+                <button className="btn btn-danger" onClick={confirmarLogout}>
+                  Confirmar saída
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
