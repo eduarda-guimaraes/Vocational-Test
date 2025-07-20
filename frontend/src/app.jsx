@@ -6,7 +6,7 @@ import Perfil from './pages/perfil';
 import Home from './pages/home';
 import Chat from './pages/chat';
 import RecuperarSenha from './pages/recuperarSenha';
-import AguardandoVerificacao from './pages/AguardandoVerificacao';
+import AguardandoVerificacao from './pages/aguardandoVerificacao';
 import DefinirSenha from './pages/DefinirSenha';       // ✅ novo import
 import EditarPerfil from './pages/EditarPerfil';       // ✅ novo import
 
