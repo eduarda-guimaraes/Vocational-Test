@@ -23,6 +23,7 @@ function Chat() {
   const [input, setInput] = useState('');
   const [chatId, setChatId] = useState(null);
   const [userId, setUserId] = useState(null);
+  const [userPhoto, setUserPhoto] = useState('/iconevazio.png'); // <- estado para foto
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -32,6 +33,7 @@ function Chat() {
       }
 
       setUserId(user.uid);
+      setUserPhoto(user.photoURL || '/iconevazio.png'); // <- define a foto do usuário
 
       try {
         const chatRef = await addDoc(collection(db, 'chats'), {
@@ -150,7 +152,17 @@ function Chat() {
                 }}
               >
                 {msg.sender === 'user' ? (
-                  <i className="bi bi-person mx-auto"></i>
+                  <img
+                    src={userPhoto}
+                    alt="Você"
+                    style={{
+                      width: '30px',
+                      height: '30px',
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      margin: 'auto'
+                    }}
+                  />
                 ) : (
                   <img
                     src="/logo.png"
