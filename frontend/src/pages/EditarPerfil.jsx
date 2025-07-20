@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { auth, provider } from '../services/firebase';
+import { auth, db, provider } from '../services/firebase';
 import {
   updateProfile,
   updateEmail,
@@ -9,6 +9,7 @@ import {
   deleteUser,
   reauthenticateWithPopup,
 } from 'firebase/auth';
+import { doc, updateDoc } from 'firebase/firestore';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 export default function EditarPerfil() {
@@ -28,6 +29,22 @@ export default function EditarPerfil() {
   const [erroExcluir, setErroExcluir] = useState('');
   const [mostrarSenhaExcluir, setMostrarSenhaExcluir] = useState(false);
 
+  // Foto de perfil
+  const [fotoPreview, setFotoPreview] = useState(user?.photoURL || '/iconevazio.png');
+  const [novaFoto, setNovaFoto] = useState(null);
+
+  const handleFotoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFotoPreview(reader.result);
+        setNovaFoto(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSalvar = async (e) => {
     e.preventDefault();
     setErro('');
@@ -37,9 +54,10 @@ export default function EditarPerfil() {
     const nomeAlterado = nome !== user.displayName;
     const emailAlterado = email !== user.email;
     const senhaAlterada = novaSenha.length >= 6;
+    const fotoAlterada = novaFoto !== null;
 
     try {
-      // Reautenticação obrigatória
+      // Reautenticação
       if (isSenha) {
         if (!senhaAtual || senhaAtual.length < 6) {
           setErro('Digite sua senha atual para confirmar as alterações.');
@@ -47,16 +65,18 @@ export default function EditarPerfil() {
         }
         const credential = EmailAuthProvider.credential(user.email, senhaAtual);
         await reauthenticateWithCredential(user, credential);
-        
-      } else if (nomeAlterado || emailAlterado) {
+      } else if (nomeAlterado || emailAlterado || fotoAlterada) {
         await reauthenticateWithPopup(user, provider);
       }
 
-      if (nomeAlterado) {
-        await updateProfile(user, { displayName: nome });
+      if (nomeAlterado || fotoAlterada) {
+        await updateProfile(user, {
+          displayName: nome,
+          ...(fotoAlterada && { photoURL: novaFoto }),
+        });
 
-        // ATUALIZAÇÃO NO FIRESTORE
-        const docRef = doc(db, "usuarios", user.uid);
+        // Atualiza nome no Firestore também
+        const docRef = doc(db, 'usuarios', user.uid);
         await updateDoc(docRef, { nome });
       }
 
@@ -75,7 +95,6 @@ export default function EditarPerfil() {
       setErro('Erro ao atualizar dados. Verifique sua senha ou tente novamente.');
     }
   };
-
 
   const confirmarExclusao = async () => {
     setErroExcluir('');
@@ -100,6 +119,25 @@ export default function EditarPerfil() {
     <div className="container d-flex justify-content-center align-items-center py-5">
       <div className="card p-4 shadow-sm" style={{ maxWidth: '450px', width: '100%' }}>
         <h4 className="mb-4 text-center">Editar Perfil</h4>
+
+        <div className="text-center mb-3">
+          <img
+            src={fotoPreview}
+            alt="Foto de perfil"
+            style={{
+              width: '100px',
+              height: '100px',
+              borderRadius: '50%',
+              objectFit: 'cover',
+              border: '3px solid #447eb8'
+            }}
+          />
+        </div>
+
+        <div className="mb-3">
+          <input type="file" className="form-control" accept="image/*" onChange={handleFotoChange} />
+        </div>
+
         <form onSubmit={handleSalvar}>
           <div className="mb-3">
             <input
