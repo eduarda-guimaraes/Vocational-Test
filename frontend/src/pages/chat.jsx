@@ -40,9 +40,11 @@ function Chat() {
           criado_em: serverTimestamp(),
         });
 
+        console.log('Chat criado com ID:', chatRef.id);
         setChatId(chatRef.id);
       } catch (error) {
         console.error('Erro ao criar chat no Firestore:', error);
+        alert('Erro ao iniciar o chat. Tente novamente.');
       }
     });
 
@@ -68,7 +70,10 @@ function Chat() {
 
   // Salva mensagem no Firestore
   const salvarMensagem = async (autor, conteudo) => {
-    if (!chatId || !userId) return;
+    if (!chatId || !userId) {
+      console.warn('chatId ou userId não definidos.');
+      return;
+    }
 
     try {
       const mensagensRef = collection(db, 'chats', chatId, 'mensagens');
@@ -77,8 +82,10 @@ function Chat() {
         conteudo,
         criada_em: serverTimestamp(),
       });
+      console.log('Mensagem salva:', autor, conteudo);
     } catch (error) {
       console.error('Erro ao salvar mensagem:', error);
+      alert('Erro ao salvar mensagem. Verifique sua conexão.');
     }
   };
 
@@ -92,6 +99,7 @@ function Chat() {
         areas,
         gerado_em: serverTimestamp(),
       });
+      console.log('Resultado salvo:', areas);
     } catch (error) {
       console.error('Erro ao salvar resultado:', error);
     }
@@ -99,7 +107,7 @@ function Chat() {
 
   // Envia a mensagem e salva tudo
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || !chatId) return;
 
     const userMessage = { sender: 'user', text: input };
     setMessages((prev) => [...prev, userMessage]);
@@ -171,6 +179,7 @@ function Chat() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyPress}
+            disabled={!chatId}
             style={{
               height: '50px',
               border: '1px solid #ccc',
@@ -179,7 +188,9 @@ function Chat() {
           />
           <button
             className="btn-enviar btn btn-primary rounded-pill px-4"
-            onClick={handleSend}>
+            onClick={handleSend}
+            disabled={!chatId}
+          >
             Enviar
           </button>
         </div>
