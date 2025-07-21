@@ -146,7 +146,7 @@ function Perfil() {
         <button className="btn-perfil w-100 mb-3" onClick={() => setView('info')}>
           Ver Informações Pessoais
         </button>
-        <button className="btn-perfil w-100 mb-3" onClick={() => setView('historico')}>
+        <button className="btn-perfil w-100 mb-3" onClick={() => navigate('/historico')}>
           Histórico de Testes
         </button>
         <button className="btn btn-danger w-100" onClick={() => setShowLogoutModal(true)}>

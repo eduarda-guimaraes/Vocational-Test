@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import Header from '../components/header';
-// ❌ REMOVIDO: import Footer
 import '../styles/global.css';
 import '../styles/form.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -10,7 +9,7 @@ import { auth, db } from '../services/firebase';
 import {
   collection,
   addDoc,
-  serverTimestamp,
+  serverTimestamp
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -84,17 +83,18 @@ function Chat() {
     }
   };
 
-  const salvarResultado = async (areas) => {
-    if (!chatId || !userId) return;
+  const salvarResultado = async (texto) => {
+    if (!userId) return;
 
     try {
-      const resultadosRef = collection(db, 'chats', chatId, 'resultados');
-      await addDoc(resultadosRef, {
-        areas,
-        gerado_em: serverTimestamp(),
+      await addDoc(collection(db, 'historico'), {
+        uid: userId,
+        resultado: texto,
+        criadoEm: serverTimestamp(),
       });
+      console.log('Resultado salvo:', texto);
     } catch (error) {
-      console.error('Erro ao salvar resultado:', error);
+      console.error('Erro ao salvar no histórico:', error);
     }
   };
 
@@ -128,9 +128,7 @@ function Chat() {
     });
     await salvarMensagem('bot', respostaIA);
 
-    if (respostaIA.toLowerCase().includes('suas áreas recomendadas são')) {
-      await salvarResultado(respostaIA);
-    }
+    await salvarResultado(respostaIA);
 
     setInput('');
   };
@@ -239,7 +237,6 @@ function Chat() {
       </main>
     </div>
   );
-
 }
 
 export default Chat;
