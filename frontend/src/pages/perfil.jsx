@@ -157,11 +157,16 @@ function Perfil() {
   };
 
   return (
-    <>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Header />
-      <div style={{ marginTop: '90px' }} />
-      <div className="container">{renderContent()}</div>
 
+      <main style={{ flex: 1, paddingTop: '90px' }}>
+        <div className="container py-4">
+          {renderContent()}
+        </div>
+      </main>
+
+      {/* ❌ Footer permanece no layout global, então não renderizamos aqui */}
       {showLogoutModal && (
         <div className="modal d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog modal-dialog-centered">
@@ -185,7 +190,7 @@ function Perfil() {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
