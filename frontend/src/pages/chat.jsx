@@ -23,8 +23,8 @@ function Chat() {
   const [input, setInput] = useState('');
   const [chatId, setChatId] = useState(null);
   const [userId, setUserId] = useState(null);
+  const [userPhoto, setUserPhoto] = useState('/iconevazio.png');
 
-  // Verifica usuário autenticado
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -33,6 +33,7 @@ function Chat() {
       }
 
       setUserId(user.uid);
+      setUserPhoto(user.photoURL || '/iconevazio.png');
 
       try {
         const chatRef = await addDoc(collection(db, 'chats'), {
@@ -40,9 +41,11 @@ function Chat() {
           criado_em: serverTimestamp(),
         });
 
+        console.log('Chat criado com ID:', chatRef.id);
         setChatId(chatRef.id);
       } catch (error) {
         console.error('Erro ao criar chat no Firestore:', error);
+        alert('Erro ao iniciar o chat. Tente novamente.');
       }
     });
 
@@ -66,7 +69,10 @@ function Chat() {
   };
 
   const salvarMensagem = async (autor, conteudo) => {
-    if (!chatId || !userId) return;
+    if (!chatId || !userId) {
+      console.warn('chatId ou userId não definidos.');
+      return;
+    }
 
     try {
       const mensagensRef = collection(db, 'chats', chatId, 'mensagens');
@@ -75,8 +81,10 @@ function Chat() {
         conteudo,
         criada_em: serverTimestamp(),
       });
+      console.log('Mensagem salva:', autor, conteudo);
     } catch (error) {
       console.error('Erro ao salvar mensagem:', error);
+      alert('Erro ao salvar mensagem. Verifique sua conexão.');
     }
   };
 
@@ -87,15 +95,16 @@ function Chat() {
       await addDoc(collection(db, 'historico'), {
         uid: userId,
         resultado: texto,
-        criadoEm: serverTimestamp(), // ESSENCIAL para funcionar o histórico
+        criadoEm: serverTimestamp(),
       });
+      console.log('Resultado salvo:', texto);
     } catch (error) {
       console.error('Erro ao salvar no histórico:', error);
     }
   };
 
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || !chatId) return;
 
     const userMessage = { sender: 'user', text: input };
     setMessages((prev) => [...prev, userMessage]);
@@ -106,7 +115,7 @@ function Chat() {
     setMessages((prev) => [...prev, botMessage]);
     await salvarMensagem('bot', respostaIA);
 
-    await salvarResultado(respostaIA); // salva sempre a resposta
+    await salvarResultado(respostaIA);
 
     setInput('');
   };
@@ -136,10 +145,35 @@ function Chat() {
                   fontSize: '20px',
                   textAlign: 'center',
                   lineHeight: '40px',
-                  margin: '0 10px'
+                  margin: '0 10px',
+                  overflow: 'hidden'
                 }}
               >
-                <i className={`bi ${msg.sender === 'user' ? 'bi-person' : 'bi-emoji-smile'} mx-auto`}></i>
+                {msg.sender === 'user' ? (
+                  <img
+                    src={userPhoto}
+                    alt="Você"
+                    style={{
+                      width: '30px',
+                      height: '30px',
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      margin: 'auto'
+                    }}
+                  />
+                ) : (
+                  <img
+                    src="/logo.png"
+                    alt="Bot"
+                    style={{
+                      width: '30px',
+                      height: '30px',
+                      borderRadius: '50%',
+                      objectFit: 'contain',
+                      margin: 'auto'
+                    }}
+                  />
+                )}
               </div>
               <div
                 style={{
@@ -165,6 +199,7 @@ function Chat() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyPress}
+            disabled={!chatId}
             style={{
               height: '50px',
               border: '1px solid #ccc',
@@ -173,7 +208,9 @@ function Chat() {
           />
           <button
             className="btn-enviar btn btn-primary rounded-pill px-4"
-            onClick={handleSend}>
+            onClick={handleSend}
+            disabled={!chatId}
+          >
             Enviar
           </button>
         </div>
