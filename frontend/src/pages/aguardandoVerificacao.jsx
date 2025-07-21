@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { auth } from '../services/firebase';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   sendEmailVerification,
   deleteUser,
   signInWithEmailAndPassword,
   onAuthStateChanged,
 } from 'firebase/auth';
+import { FaEnvelopeOpenText } from 'react-icons/fa';
 
 export default function AguardandoVerificacao() {
   const [mensagem, setMensagem] = useState('');
@@ -15,17 +16,15 @@ export default function AguardandoVerificacao() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Escuta o usuário logado e inicia verificação automática
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUsuarioLogado(user);
         await user.reload();
 
         if (user.emailVerified) {
-          navigate('/perfil'); // Redireciona automaticamente
+          navigate('/perfil');
         } else {
           setMensagem('Seu e-mail ainda não foi verificado.');
-          // Inicia verificação automática a cada 5 segundos
           const interval = setInterval(async () => {
             await user.reload();
             if (user.emailVerified) {
@@ -51,7 +50,7 @@ export default function AguardandoVerificacao() {
     }
 
     try {
-      await usuarioLogado.reload(); // Força atualização dos dados
+      await usuarioLogado.reload();
       const user = auth.currentUser;
 
       if (user.emailVerified) {
@@ -71,7 +70,6 @@ export default function AguardandoVerificacao() {
       }
     }
   };
-
 
   const excluirConta = async () => {
     const email = sessionStorage.getItem('emailTemp');
@@ -99,22 +97,27 @@ export default function AguardandoVerificacao() {
   };
 
   return (
-    <div className="container d-flex justify-content-center align-items-center vh-100">
+    <div className="container d-flex justify-content-center align-items-center vh-100 bg-light">
       <div className="card p-4 shadow rounded-4 text-center w-100" style={{ maxWidth: '480px' }}>
-        <h3 className="mb-3 text-primary">Verifique seu e-mail</h3>
+        <div className="mb-3">
+          <FaEnvelopeOpenText size={48} color="#447EB8" />
+        </div>
+        <h3 className="mb-3" style={{ color: '#447EB8' }}>
+          Verifique seu e-mail
+        </h3>
         <p className="mb-4 text-muted" style={{ fontSize: '0.95rem' }}>
           Enviamos um link de verificação para o seu e-mail.<br />
           Você precisa confirmar antes de continuar.
         </p>
 
         {mensagem && (
-          <div className="alert alert-info py-2" style={{ fontSize: 14 }}>
+          <div className="alert alert-info py-2 px-3 small" style={{ fontSize: '0.9rem' }}>
             {mensagem}
           </div>
         )}
 
         <div className="d-grid gap-2 mt-3">
-          <button className="btn btn-outline-secondary" onClick={reenviar}>
+          <button className="btn btn-outline-primary" onClick={reenviar}>
             Reenviar e-mail
           </button>
           <button
@@ -125,6 +128,13 @@ export default function AguardandoVerificacao() {
             {loadingExcluir ? 'Excluindo...' : 'Excluir minha conta'}
           </button>
         </div>
+
+        <hr className="my-4" />
+        <p className="mb-0">
+          <Link to="/" className="text-decoration-none" style={{ color: '#447EB8' }}>
+            ← Voltar para o Vocational Test
+          </Link>
+        </p>
       </div>
     </div>
   );

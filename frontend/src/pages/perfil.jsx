@@ -2,122 +2,101 @@ import React, { useState, useEffect } from 'react';
 import Header from '../components/header';
 import '../styles/global.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { auth } from '../services/firebase';
+import { auth, db } from '../services/firebase';
 import { signOut } from 'firebase/auth';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../services/firebase';
-
 
 function Perfil() {
   const [view, setView] = useState('perfil');
-
-  // Estado com dados reais do usuário logado
   const [userData, setUserData] = useState({
     nome: '',
     email: '',
     senha: '********',
     foto: '/iconevazio.png'
   });
-
-  const [editData, setEditData] = useState({ ...userData });
   const [historico, setHistorico] = useState([]);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
-  const fetchUserData = async () => {
-    const currentUser = auth.currentUser;
+    const fetchUserData = async () => {
+      const currentUser = auth.currentUser;
 
-    if (currentUser) {
-      try {
-        const docRef = doc(db, "usuarios", currentUser.uid);
-        const docSnap = await getDoc(docRef);
-
-        if (docSnap.exists()) {
-          const dados = docSnap.data();
+      if (currentUser) {
+        try {
+          const docRef = doc(db, 'usuarios', currentUser.uid);
+          const docSnap = await getDoc(docRef);
+          const dados = docSnap.exists() ? docSnap.data() : {};
 
           const dadosUsuario = {
-            nome: dados.nome,
+            nome: currentUser.displayName || dados.nome || '',
             email: currentUser.email,
             senha: '********',
-            foto: currentUser.photoURL || '/iconevazio.png'
+            foto: currentUser.photoURL || dados.fotoPerfil || '/iconevazio.png'
           };
 
           setUserData(dadosUsuario);
-          setEditData(dadosUsuario);
-        } else {
-          console.log('Documento não encontrado no Firestore');
+        } catch (error) {
+          console.error('Erro ao buscar dados do Firestore:', error);
         }
-      } catch (error) {
-        console.error('Erro ao buscar dados do Firestore:', error);
       }
+
+      const dadosSalvos = JSON.parse(localStorage.getItem('historico')) || [];
+      setHistorico(dadosSalvos);
+    };
+
+    fetchUserData();
+
+    const voltarPara = location.state?.voltarPara;
+    if (voltarPara) {
+      setView(voltarPara);
     }
+  }, [location.state]);
 
-    const dadosSalvos = JSON.parse(localStorage.getItem('historico')) || [];
-    setHistorico(dadosSalvos);
-  };
-
-  fetchUserData();
-}, []);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setEditData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSave = () => {
-    setUserData(editData);
-    setView('perfil');
-  };
-
-  const navigate = useNavigate();
-
-  const handleLogout = async () => {
+  const confirmarLogout = async () => {
     try {
       await signOut(auth);
-      navigate('/'); // Redireciona para a home após logout
+      navigate('/');
     } catch (error) {
       console.error('Erro ao sair:', error);
     }
   };
 
-
   const renderContent = () => {
     if (view === 'info') {
       return (
         <div className="card p-4 shadow-sm mx-auto" style={{ maxWidth: '500px' }}>
-          <h5 className="card-title text-center">Informações Pessoais</h5>
+          <h5 className="card-title text-center mb-3">Informações Pessoais</h5>
+
+          <div className="text-center mb-3">
+            <img
+              src={userData.foto}
+              alt="Foto de perfil"
+              style={{
+                width: '100px',
+                height: '100px',
+                borderRadius: '50%',
+                objectFit: 'cover',
+                border: '3px solid #447eb8'
+              }}
+            />
+          </div>
+
           <div className="mb-3"><strong>Nome:</strong> {userData.nome}</div>
           <div className="mb-3"><strong>Email:</strong> {userData.email}</div>
           <div className="mb-4"><strong>Senha:</strong> {userData.senha}</div>
-          <button className="btn-perfil w-100 mb-3" onClick={() => { setEditData(userData); setView('editar'); }}>
+
+          <button
+            className="btn-perfil w-100 mb-3"
+            onClick={() => navigate('/editar-perfil', { state: { voltarPara: 'info' } })}
+          >
             Editar Informações
           </button>
-          <button className="btn-perfil w-100" onClick={() => setView('perfil')}>
+          <button className="btn btn-secondary w-100" onClick={() => setView('perfil')}>
             Voltar
           </button>
-        </div>
-      );
-    } else if (view === 'editar') {
-      return (
-        <div className="card p-4 shadow-sm mx-auto" style={{ maxWidth: '500px' }}>
-          <h5 className="card-title text-center">Editar Informações</h5>
-          <form>
-            <div className="mb-3">
-              <label className="form-label">Nome de Usuário</label>
-              <input type="text" name="nome" className="form-control" value={editData.nome} onChange={handleChange} />
-            </div>
-            <div className="mb-3">
-              <label className="form-label">Email</label>
-              <input type="email" name="email" className="form-control" value={editData.email} onChange={handleChange} disabled />
-            </div>
-            <div className="mb-3">
-              <label className="form-label">Senha</label>
-              <input type="password" name="senha" className="form-control" value={editData.senha} disabled />
-            </div>
-            <button type="button" className="btn-perfil w-100" style={{ backgroundColor: '#447EB8', color: '#fff' }} onClick={handleSave}>
-              Salvar e Voltar
-            </button>
-          </form>
         </div>
       );
     } else if (view === 'historico') {
@@ -141,7 +120,7 @@ function Perfil() {
               ))}
             </ul>
           )}
-          <button className="btn-perfil w-100 mt-3" onClick={() => setView('perfil')}>
+          <button className="btn btn-secondary w-100 mt-3" onClick={() => setView('perfil')}>
             Voltar
           </button>
         </div>
@@ -149,41 +128,69 @@ function Perfil() {
     }
 
     return (
-        <div className="card p-4 shadow-sm mx-auto" style={{ maxWidth: '500px' }}>
-          <div className="text-center mb-3">
-            <img
-              src={userData.foto}
-              alt="Foto de perfil"
-              style={{
-                width: '100px',
-                height: '100px',
-                borderRadius: '50%',
-                objectFit: 'cover',
-                border: '3px solid #447eb8'
-              }}
-            />
-          </div>
-          <h5 className="card-title text-center mb-4">Olá, {userData.nome}!</h5>
-          <button className="btn-perfil w-100 mb-3" onClick={() => setView('info')}>
-            Ver Informações Pessoais
-          </button>
-          <button className="btn-perfil w-100 mb-3" onClick={() => setView('historico')}>
-            Histórico de Testes
-          </button>
-          <button className="btn btn-danger w-100" onClick={handleLogout}>
-            Sair
-          </button>
+      <div className="card p-4 shadow-sm mx-auto" style={{ maxWidth: '500px' }}>
+        <div className="text-center mb-3">
+          <img
+            src={userData.foto}
+            alt="Foto de perfil"
+            style={{
+              width: '100px',
+              height: '100px',
+              borderRadius: '50%',
+              objectFit: 'cover',
+              border: '3px solid #447eb8'
+            }}
+          />
         </div>
+        <h5 className="card-title text-center mb-4">Olá, {userData.nome}!</h5>
+        <button className="btn-perfil w-100 mb-3" onClick={() => setView('info')}>
+          Ver Informações Pessoais
+        </button>
+        <button className="btn-perfil w-100 mb-3" onClick={() => navigate('/historico')}>
+          Histórico de Testes
+        </button>
+        <button className="btn btn-danger w-100" onClick={() => setShowLogoutModal(true)}>
+          Sair
+        </button>
+      </div>
     );
-
   };
 
   return (
-    <>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Header />
-      <div style={{ marginTop: '90px' }} />
-      <div className="container">{renderContent()}</div>
-    </>
+
+      <main style={{ flex: 1, paddingTop: '90px' }}>
+        <div className="container py-4">
+          {renderContent()}
+        </div>
+      </main>
+
+      {/* ❌ Footer permanece no layout global, então não renderizamos aqui */}
+      {showLogoutModal && (
+        <div className="modal d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Confirmar saída</h5>
+                <button type="button" className="btn-close" onClick={() => setShowLogoutModal(false)}></button>
+              </div>
+              <div className="modal-body">
+                <p>Tem certeza de que deseja sair da sua conta?</p>
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setShowLogoutModal(false)}>
+                  Cancelar
+                </button>
+                <button className="btn btn-danger" onClick={confirmarLogout}>
+                  Confirmar saída
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

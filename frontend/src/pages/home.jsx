@@ -26,6 +26,94 @@ function Home() {
 
       <img src="/banner.png" alt="banner demonstrativo" className="w-100" />
 
+<div className="container my-5">
+  <div className="row text-center">
+    <div className="col-md-4 mb-4">
+      <div
+        className="card h-100 shadow"
+        style={{
+          backgroundColor: '#f8f9fa',
+          borderLeft: '6px solid #447EB8',
+          border: 'none',
+          borderRadius: '1rem',
+          transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'translateY(-5px)';
+          e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.1)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'none';
+          e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.05)';
+        }}
+      >
+        <div className="card-body p-4 text-start">
+          <h5 style={{ color: '#447EB8', fontWeight: 'bold', marginBottom: '1rem' }}>O que é o Vocational Test?</h5>
+          <p style={{ color: '#333' }}>
+            É uma plataforma que utiliza inteligência artificial para ajudar jovens a descobrirem suas carreiras ideais com base em seus interesses e perfis.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div className="col-md-4 mb-4">
+      <div
+        className="card h-100 shadow"
+        style={{
+          backgroundColor: '#f8f9fa',
+          borderLeft: '6px solid #447EB8',
+          border: 'none',
+          borderRadius: '1rem',
+          transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'translateY(-5px)';
+          e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.1)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'none';
+          e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.05)';
+        }}
+      >
+        <div className="card-body p-4 text-start">
+          <h5 style={{ color: '#447EB8', fontWeight: 'bold', marginBottom: '1rem' }}>Como funciona o teste?</h5>
+          <p style={{ color: '#333' }}>
+            Você responde algumas perguntas, e nossa IA analisa suas respostas para indicar áreas profissionais que combinam com você.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div className="col-md-4 mb-4">
+      <div
+        className="card h-100 shadow"
+        style={{
+          backgroundColor: '#f8f9fa',
+          borderLeft: '6px solid #447EB8',
+          border: 'none',
+          borderRadius: '1rem',
+          transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'translateY(-5px)';
+          e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.1)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'none';
+          e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.05)';
+        }}
+      >
+        <div className="card-body p-4 text-start">
+          <h5 style={{ color: '#447EB8', fontWeight: 'bold', marginBottom: '1rem' }}>Benefícios da plataforma</h5>
+          <p style={{ color: '#333' }}>
+            Descoberta vocacional personalizada, facilidade de acesso, confidencialidade dos dados e resultados práticos para planejamento de carreira.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
       <div className="container my-5" id="scrollspyHeading3">
         <h3 className="text-center">Dúvidas Frequentes:</h3>
         <p className="text-center">Aqui estão algumas perguntas comuns sobre o Vocational Test:</p>
