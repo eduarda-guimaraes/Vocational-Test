@@ -48,10 +48,11 @@ export default function EditarPerfil() {
   };
 
   const uploadParaCloudinary = async (base64Image) => {
+    const base64SemPrefixo = base64Image.replace(/^data:image\/\w+;base64,/, '');
+
     const formData = new FormData();
-    formData.append('file', base64Image);
+    formData.append('file', `data:image/jpeg;base64,${base64SemPrefixo}`);
     formData.append('upload_preset', uploadPreset);
-    formData.append('cloud_name', cloudName);
 
     const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
       method: 'POST',
@@ -59,6 +60,12 @@ export default function EditarPerfil() {
     });
 
     const data = await response.json();
+
+    if (!response.ok) {
+      console.error('Erro no upload Cloudinary:', data);
+      throw new Error('Erro ao enviar imagem para o Cloudinary');
+    }
+
     return data.secure_url;
   };
 
@@ -69,19 +76,18 @@ export default function EditarPerfil() {
 
     const isSenha = user.providerData[0]?.providerId === 'password';
     const nomeAlterado = nome !== user.displayName;
-    const emailAlterado = email !== user.email;
     const senhaAlterada = novaSenha.length >= 6;
     const fotoAlterada = novaFoto !== null;
 
     try {
-      if (isSenha) {
+      if (isSenha && senhaAlterada) {
         if (!senhaAtual || senhaAtual.length < 6) {
           setErro('Digite sua senha atual para confirmar as alterações.');
           return;
         }
         const credential = EmailAuthProvider.credential(user.email, senhaAtual);
         await reauthenticateWithCredential(user, credential);
-      } else if (nomeAlterado || emailAlterado || fotoAlterada) {
+      } else if (nomeAlterado || fotoAlterada) {
         await reauthenticateWithPopup(user, provider);
       }
 
@@ -103,10 +109,6 @@ export default function EditarPerfil() {
         });
       }
 
-      if (emailAlterado) {
-        await updateEmail(user, email);
-      }
-
       if (senhaAlterada && isSenha) {
         await updatePassword(user, novaSenha);
       }
@@ -115,9 +117,10 @@ export default function EditarPerfil() {
       setTimeout(() => navigate('/perfil', { state: { voltarPara } }), 1500);
     } catch (error) {
       console.error(error);
-      setErro('Erro ao atualizar dados. Verifique sua senha ou tente novamente.');
+      setErro('Erro ao atualizar dados: ' + error.message);
     }
   };
+
 
   const confirmarExclusao = async () => {
     setErroExcluir('');
@@ -176,8 +179,9 @@ export default function EditarPerfil() {
               type="email"
               className="form-control"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email"
+              readOnly
+              disabled
+              style={{ backgroundColor: '#e9ecef', cursor: 'not-allowed' }}
             />
           </div>
           <div className="mb-3">
