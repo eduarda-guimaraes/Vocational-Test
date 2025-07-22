@@ -1,0 +1,25 @@
+# Ignorar credenciais do Firebase
+/config/
+firebase-credentials.json
+
+# Ignorar arquivo .env
+.env
+
+# Ignorar ambiente virtual
+venv/
+
+# Ignorar arquivos de compilação Python
+*.pyc
+*.pyo
+__pycache__/
+
+# Ignorar __pycache__ dentro da pasta app
+app/__pycache__//
+
+# Ignorar arquivos temporários de editores
+.vscode/
+.idea/
+*.swp
+
+# Ignorar arquivos de log
+*.log
