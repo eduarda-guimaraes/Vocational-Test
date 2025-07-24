@@ -1,0 +1,24 @@
+# Ignorar arquivos Python compilados
+__pycache__/
+*.pyc
+
+# Ignorar ambientes virtuais
+venv/
+.env
+
+# Ignorar configurações específicas do sistema
+*.log
+.DS_Store
+Thumbs.db
+
+# Ignorar credenciais sensíveis (apenas se forem geradas fora do repositório)
+config/firebase-credentials.json
+
+# Ignorar arquivos temporários do VS Code
+.vscode/
+
+# Ignorar pacotes do Python
+*.egg-info/
+*.egg
+dist/
+build/

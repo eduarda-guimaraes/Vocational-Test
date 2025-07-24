@@ -1,1 +1,26 @@
+# node modules
+node_modules/
+
+# arquivos de build (caso você use `vite build`)
+dist/
+
+# arquivos de ambiente
 .env
+.env.local
+.env.development
+.env.production
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# arquivos do sistema
+.DS_Store
+Thumbs.db
+
+# cache do Vite
+.vite/
+
+# configurações do editor
+.vscode/
