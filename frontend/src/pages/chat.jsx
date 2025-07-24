@@ -84,19 +84,22 @@ function Chat() {
   };
 
   const salvarResultado = async (texto) => {
-    if (!userId) return;
+    if (!chatId || !userId) return;
 
     try {
-      await addDoc(collection(db, 'historico'), {
+      const respostasRef = collection(db, 'chats', chatId, 'respostas');
+      await addDoc(respostasRef, {
         uid: userId,
         resultado: texto,
         criadoEm: serverTimestamp(),
       });
-      console.log('Resultado salvo:', texto);
+      console.log('Resumo salvo na subcoleção respostas:', texto);
     } catch (error) {
-      console.error('Erro ao salvar no histórico:', error);
+      console.error('Erro ao salvar resultado:', error);
+      alert('Erro ao salvar resultado. Verifique sua conexão.');
     }
   };
+
 
   const handleSend = async () => {
     if (!input.trim() || !chatId) return;
@@ -144,10 +147,12 @@ function Chat() {
       <main style={{ flex: 1, minHeight: 'calc(100vh - 90px)' }}>
         <div className="container py-4" style={{ paddingTop: '30px' }}>
           {/* MENSAGEM EXPLICATIVA */}
-          <div className="alert text-center rounded-4 shadow-sm p-4" style={{ backgroundColor: '#e3f2fd', color: '#0d47a1' }}>
+         <div className="alert text-center rounded-4 shadow-sm p-4" style={{ backgroundColor: '#e3f2fd', color: '#0d47a1' }}>
             <h5 className="mb-2 fw-bold">Como funciona o teste vocacional?</h5>
             <p className="mb-0">
-              Converse com nosso assistente sobre seus interesses. A inteligência artificial analisará suas respostas e recomendará áreas profissionais ideais para você.
+              Converse com nosso assistente sobre seus interesses. A inteligência artificial analisará suas respostas
+              e recomendará áreas profissionais ideais para você.<br />
+              <strong>Dica:</strong> você pode digitar <strong>"encerrar teste"</strong> a qualquer momento para terminar e ver o resultado.
             </p>
           </div>
 

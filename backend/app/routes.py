@@ -45,23 +45,29 @@ def salvar_resposta_firebase(chat_id, pergunta, resposta):
     })
 
 # Função para gerar o prompt interativo
+# Função para gerar o prompt interativo
 def gerar_prompt_interativo(pergunta, respostas_anteriores, chat_id):
     prompt_base = (
-        "Você está ajudando um jovem a escolher uma carreira. Pergunte sobre seus interesses e habilidades, "
-        "e direcione para áreas de carreira com base nas respostas. "
-        "Mantenha a conversa fluida, utilizando as respostas anteriores para sugerir uma carreira que faça sentido."
+        "Você é um assistente vocacional interativo. Seu objetivo é descobrir os interesses e aptidões de um jovem "
+        "para ajudá-lo a identificar áreas profissionais que combinem com seu perfil.\n"
+        "A cada nova pergunta, leve em consideração o que ele já respondeu e formule questões mais específicas para avançar no diagnóstico.\n"
+        "No fim do teste, será gerado um resumo vocacional com base nas respostas anteriores.\n"
+        "As perguntas devem ser curtas, claras e diretas, como se fosse uma conversa natural."
     )
 
     if isinstance(respostas_anteriores, str):
         respostas_anteriores = [respostas_anteriores]
-    
+
+    # Gera o contexto para o modelo com o histórico
     contexto = (
         f"{prompt_base}\n\n"
-        "Respostas anteriores:\n" +
+        f"Histórico de respostas do usuário:\n" +
         "\n".join(respostas_anteriores) +
-        f"\nPergunta atual: {pergunta}"
+        f"\n\nMensagem mais recente do usuário: {pergunta}\n"
+        f"Baseado nesse histórico, responda de forma coerente, guiando o usuário e em seguida faça uma nova pergunta vocacional para dar continuidade ao teste."
     )
 
+    # Gerenciamento de contagem de perguntas
     if chat_id in chats_perguntas:
         perguntas_restantes = [p for p in perguntas if p not in chats_perguntas[chat_id]]
     else:
@@ -75,6 +81,7 @@ def gerar_prompt_interativo(pergunta, respostas_anteriores, chat_id):
         pergunta_aleatoria = "Você já respondeu todas as perguntas. Com base nas suas respostas, podemos sugerir algumas áreas de interesse."
 
     return contexto, pergunta_aleatoria
+
 
 # Função para gerar áreas de interesse com base nas respostas
 def gerar_areas_respostas(respostas):
@@ -104,36 +111,83 @@ def chat_vocacional():
     chat_id = data.get('chat_id', gerar_chat_id())  # Se não houver chat_id, gera um novo
 
     try:
+        # Verifica se o usuário deseja encerrar manualmente
+        if "encerrar teste" in pergunta.lower():
+            resumo_prompt = (
+                "Você é um orientador vocacional. Gere um resumo final com base nas respostas anteriores do usuário. "
+                "Explique brevemente o perfil percebido e sugira áreas coerentes de forma empática e encorajadora.\n\n"
+                "Respostas anteriores:\n" + "\n".join(respostas_anteriores)
+            )
+
+            resumo = openai.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "Você é um orientador vocacional."},
+                    {"role": "user", "content": resumo_prompt}
+                ],
+                max_tokens=200,
+                temperature=0.8
+            ).choices[0].message.content
+
+            return jsonify({
+                "resposta": resumo,
+                "pergunta_aleatoria": None
+            })
+
+        # Continua normalmente
+       # Gera prompt base
         prompt_interativo, pergunta_aleatoria = gerar_prompt_interativo(
             pergunta, respostas_anteriores, chat_id
         )
 
-        # Novo ponto de entrada para o SDK openai>=1.0.0
+        # Prepara o histórico completo da conversa
+        mensagens_completas = [
+            {"role": "system", "content": "Você é um assistente vocacional que conduz uma conversa com base nas respostas anteriores, "
+                                        "buscando entender o perfil do usuário. Você deve manter o contexto e ser natural."}
+        ]
+
+        # Adiciona todas as respostas anteriores como mensagens do usuário
+        for r in respostas_anteriores:
+            mensagens_completas.append({"role": "user", "content": r})
+
+        # Adiciona a pergunta atual como a última interação
+        mensagens_completas.append({"role": "user", "content": pergunta})
+
+        # Chamada à API com histórico real
         response = openai.chat.completions.create(
             model="gpt-3.5-turbo",
-            messages=[ 
-                {"role": "system", "content": "Você é um assistente de teste vocacional."},
-                {"role": "user", "content": prompt_interativo}
-            ],
-            max_tokens=120,  # Ajustando para respostas mais curtas
-            temperature=0.7  # Temperatura ajustada para maior criatividade, mas sem respostas longas
+            messages=mensagens_completas,
+            max_tokens=180,
+            temperature=0.7
         )
+
 
         conteudo = response.choices[0].message.content
 
-        # Salvar a resposta no Firebase
         salvar_resposta_firebase(chat_id, pergunta, conteudo)
 
-        # Se alcançou 20 perguntas, sugere áreas
-        if chats_contagem_perguntas.get(chat_id, 0) >= 20:
-            areas_interesse = gerar_areas_respostas(respostas_anteriores)
-            if areas_interesse:
-                conteudo += (
-                    f"\n\nCom base nas suas respostas, sugerimos as seguintes áreas de interesse: "
-                    + ", ".join(areas_interesse)
-                )
-            # Fechar a conversa
-            conteudo += "\nEspero que essas sugestões ajudem na sua escolha de carreira. Você tem mais alguma dúvida?"
+        # Encerra automaticamente após 10 interações
+        if chats_contagem_perguntas.get(chat_id, 0) >= 10:
+            resumo_prompt = (
+                "Você é um orientador vocacional. Gere um resumo final com base nas respostas anteriores do usuário. "
+                "Explique brevemente o perfil percebido e sugira áreas coerentes de forma empática e encorajadora.\n\n"
+                "Respostas anteriores:\n" + "\n".join(respostas_anteriores)
+            )
+
+            resumo = openai.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "Você é um orientador vocacional."},
+                    {"role": "user", "content": resumo_prompt}
+                ],
+                max_tokens=200,
+                temperature=0.8
+            ).choices[0].message.content
+
+            return jsonify({
+                "resposta": resumo,
+                "pergunta_aleatoria": None
+            })
 
         return jsonify({
             "resposta": conteudo,
