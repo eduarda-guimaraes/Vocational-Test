@@ -1,6 +1,14 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom'; // ✅ IMPORTANTE para navegação SPA
 import { auth, db } from '../services/firebase';
-import { collection, getDocs, orderBy, query, where } from 'firebase/firestore';
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  limit
+} from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import Header from '../components/header';
 import '../styles/global.css';
@@ -16,21 +24,30 @@ function Historico() {
 
     const carregarHistorico = async (user) => {
       try {
-        const q = query(
-          collection(db, 'historico'),
-          where('uid', '==', user.uid),
-          orderBy('criadoEm', 'desc')
+        const chatsQuery = query(
+          collection(db, 'chats'),
+          where('usuario_id', '==', user.uid)
         );
 
-        const snapshot = await getDocs(q);
-        const lista = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+        const chatsSnapshot = await getDocs(chatsQuery);
+        const resultados = [];
 
-        setItens(lista);
+        for (const chatDoc of chatsSnapshot.docs) {
+          const respostasRef = collection(db, 'chats', chatDoc.id, 'respostas');
+          const ultimaRespostaQuery = query(respostasRef, orderBy('criadoEm', 'desc'), limit(1));
+          const ultimaRespostaSnap = await getDocs(ultimaRespostaQuery);
+
+          ultimaRespostaSnap.forEach((doc) => {
+            resultados.push({
+              id: doc.id,
+              ...doc.data()
+            });
+          });
+        }
+
+        setItens(resultados);
       } catch (error) {
-        console.error('Erro ao buscar histórico:', error);
+        console.error('Erro ao buscar respostas:', error);
       } finally {
         setCarregando(false);
       }
@@ -72,32 +89,66 @@ function Historico() {
               border: 'none'
             }}
           >
-            {itens.map((item, i) => (
-              <div
-                key={i}
-                className="mb-3 p-3"
-                style={{
-                  backgroundColor: '#ffffff',
-                  border: '1px solid #dee2e6',
-                  borderRadius: '0.75rem',
-                  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.05)',
-                  transition: 'transform 0.2s',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-3px)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'none';
-                }}
-              >
-                <p className="mb-1" style={{ fontWeight: '500', color: '#447EB8' }}>
-                  Resultado:
-                </p>
-                <p style={{ whiteSpace: 'pre-wrap', color: '#333' }}>{item.resultado}</p>
-              </div>
-            ))}
+            {itens.map((item, i) => {
+              const dataFormatada = item.criadoEm?.toDate
+                ? item.criadoEm.toDate().toLocaleString('pt-BR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : 'Data não disponível';
+
+              return (
+                <div
+                  key={i}
+                  className="mb-3 p-3"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #dee2e6',
+                    borderRadius: '0.75rem',
+                    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.05)',
+                    transition: 'transform 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-3px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'none';
+                  }}
+                >
+                  <p className="mb-1 fw-bold" style={{ color: '#447EB8' }}>
+                    Resultado:
+                  </p>
+                  <p className="mb-2" style={{ whiteSpace: 'pre-wrap', color: '#333' }}>
+                    {item.resultado}
+                  </p>
+                  <p className="text-muted small mb-0">Criado em: {dataFormatada}</p>
+                </div>
+              );
+            })}
           </div>
         )}
+
+        {/* Botão Voltar */}
+        <div className="text-center mt-4">
+          <Link
+            to="/perfil"
+            className="btn"
+            style={{
+              backgroundColor: '#6c757d',
+              color: 'white',
+              padding: '12px 50px',
+              borderRadius: '10px',
+              fontWeight: '500',
+              fontSize: '16px',
+              textDecoration: 'none'
+            }}
+          >
+            Voltar
+          </Link>
+        </div>
       </div>
     </>
   );
