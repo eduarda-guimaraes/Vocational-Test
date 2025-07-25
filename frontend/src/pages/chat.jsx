@@ -51,9 +51,11 @@ function Chat() {
     return () => unsubscribe();
   }, []);
 
-  const enviarParaIA = async (mensagem) => {
+ const enviarParaIA = async (mensagem) => {
+    const backendUrl = 'http://localhost:5000'; // uso fixo local
+
     try {
-      const response = await fetch('http://localhost:5000/api/chat-vocacional', {
+      const response = await fetch(`${backendUrl}/api/chat-vocacional`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mensagem })
@@ -66,6 +68,7 @@ function Chat() {
       return 'Houve um erro ao se conectar com a IA.';
     }
   };
+
 
   const salvarMensagem = async (autor, conteudo) => {
     if (!chatId || !userId) return;
