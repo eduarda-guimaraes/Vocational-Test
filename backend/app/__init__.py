@@ -12,13 +12,12 @@ load_dotenv()
 def create_app():
     app = Flask(__name__)
 
-    # CORS: permite requisições apenas do seu front hospedado no Firebase
     CORS(app, resources={r"/*": {"origins": [
-    "https://vocational-test.web.app",
-    "https://vocational-test.firebaseapp.com"]}})
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://vocationaltest.com.br"
+    ]}})
 
-
-    # Inicializa o Firebase apenas se ainda não foi iniciado
     if not firebase_admin._apps:
         cred_base64 = os.getenv("FIREBASE_CREDENTIALS_BASE64")
         if not cred_base64:
