@@ -52,7 +52,7 @@ function Chat() {
   }, []);
 
  const enviarParaIA = async (mensagem) => {
-    const backendUrl = 'http://localhost:5000'; // uso fixo local
+    const backendUrl = import.meta.env.VITE_API_URL;
 
     try {
       const response = await fetch(`${backendUrl}/api/chat-vocacional`, {
