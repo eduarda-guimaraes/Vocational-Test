@@ -1,6 +1,33 @@
+# Ignora arquivos compilados do Python
 __pycache__/
 *.pyc
+*.py[cod]
+*.pyo
+
+# Ignora ambientes virtuais
 venv/
+.venv/
+
+# Ignora arquivos de ambiente
 .env
+
+# Ignora credenciais sensíveis
 firebase-credentials.json
+/config/
+
+# Ignora arquivos de configuração de IDEs
 .vscode/
+.idea/
+*.swp
+
+# Ignora arquivos de sistema
+.DS_Store
+Thumbs.db
+
+# Ignora arquivos de log
+*.log
+
+# Ignora arquivos do frontend
+frontend/node_modules/
+frontend/dist/
+frontend/build/
