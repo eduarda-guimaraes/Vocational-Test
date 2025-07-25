@@ -9,7 +9,6 @@ from flask import Blueprint, request, jsonify
 # Blueprint
 main = Blueprint('main', __name__)
 
-# Configura a chave global da OpenAI
 
 
 # Lista de perguntas

@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Ignora arquivos compilados do Python
 __pycache__/
 *.py[cod]
@@ -6,44 +5,28 @@ __pycache__/
 
 # Ignora ambientes virtuais
 venv/
-.env/
 .venv/
 
-# Ignora pasta de configuração com dados sensíveis
-config/
+# Ignora arquivos de ambiente
+.env
 
-# Ignora arquivos de configuração do VSCode
+# Ignora credenciais sensíveis
+/config/
+firebase-credentials.json
+
+# Ignora arquivos de configuração de IDEs
 .vscode/
+.idea/
+*.swp
 
 # Ignora arquivos de sistema
 .DS_Store
 Thumbs.db
 
 # Ignora arquivos de log
-=======
-# Ignorar credenciais do Firebase
-/config/
-firebase-credentials.json
-
-# Ignorar arquivo .env
-.env
-
-# Ignorar ambiente virtual
-venv/
-
-# Ignorar arquivos de compilação Python
-*.pyc
-*.pyo
-__pycache__/
-
-# Ignorar __pycache__ dentro da pasta app
-app/__pycache__//
-
-# Ignorar arquivos temporários de editores
-.vscode/
-.idea/
-*.swp
-
-# Ignorar arquivos de log
->>>>>>> 135a8e570bb3f60c10abdd84e3c777ca989156dd
 *.log
+
+# Build do React
+frontend/node_modules/
+frontend/dist/
+frontend/build/

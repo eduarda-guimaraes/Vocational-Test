@@ -1,11 +1,10 @@
-# app/__init__.py
 import os
 import json
 import base64
 import firebase_admin
 from firebase_admin import credentials
 from flask import Flask
-from flask_cors import CORS  # ✅ import necessário
+from flask_cors import CORS
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -13,7 +12,6 @@ load_dotenv()
 def create_app():
     app = Flask(__name__)
 
-    # ✅ Ativa CORS para permitir requisições do front-end local
     CORS(app, resources={r"/*": {"origins": "*"}})
 
     # Inicializa o Firebase apenas se ainda não foi iniciado
