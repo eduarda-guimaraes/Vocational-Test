@@ -53,6 +53,7 @@ function Chat() {
 
  const enviarParaIA = async (mensagem) => {
     const backendUrl = import.meta.env.VITE_API_URL;
+    console.log('VITE_API_URL:', backendUrl); 
 
     try {
       const response = await fetch(`${backendUrl}/api/chat-vocacional`, {
