@@ -9,7 +9,7 @@
     "react-router-dom": "^6.30.1"
   },
   "name": "vocational-test",
-  "version": "1.0.0",
+  "version": "1.5.2",
   "description": "O **Vocational Test** é uma aplicação web inteligente desenvolvida para auxiliar usuários na escolha de uma carreira profissional alinhada ao seu perfil. Utiliza algoritmos de **Machine Learning** com **Scikit-learn** para oferecer recomendações baseadas em respostas a um teste vocacional, proporcionando uma experiência personalizada, intuitiva e eficiente.",
   "main": "index.js",
   "scripts": {
