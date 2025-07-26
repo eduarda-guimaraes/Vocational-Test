@@ -24,7 +24,7 @@ jobs:
       - name: Buildar frontend
         run: npm run build --prefix frontend
 
-      - name: Deploy para o Firebase Hosting (canal: live)
+      - name: Deploy para o Firebase Hosting (canal:live)
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
