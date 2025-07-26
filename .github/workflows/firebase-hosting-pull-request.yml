@@ -1,18 +1,32 @@
 name: Deploy to Firebase Hosting on PR
+
 on: pull_request
+
 permissions:
   checks: write
   contents: read
   pull-requests: write
+
 jobs:
   build_and_preview:
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
-      - run: npm install --prefix frontend
-      - run: npm run build --prefix frontend
-      - uses: FirebaseExtended/action-hosting-deploy@v0
+
+      - name: Instalar dependências do frontend
+        run: npm install --prefix frontend
+
+      - name: Corrigir permissão do Vite
+        run: chmod +x node_modules/.bin/vite
+        working-directory: frontend
+
+      - name: Buildar projeto frontend
+        run: npm run build --prefix frontend
+
+      - name: Deploy para Firebase Hosting (Preview)
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_VOCATIONAL_TEST_90CD1 }}
