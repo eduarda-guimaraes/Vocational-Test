@@ -8,6 +8,8 @@ on:
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
+    env:
+      NODE_ENV: development
 
     steps:
       - uses: actions/checkout@v4
