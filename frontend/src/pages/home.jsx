@@ -10,12 +10,12 @@ function Home() {
     <>
       <Header />
 
-      <div style={{ height: '20px' }} />
-
       <div className="container-fluid p-0" style={{ paddingTop: '40px' }}>
         <div className="card w-100 m-0 rounded-0" style={{ backgroundColor: '#447eb8', height: '300px' }}>
           <div className="card-body d-flex flex-column align-items-center justify-content-center text-white">
-            <h2 className="fw-bold">DESCUBRA A CARREIRA IDEAL PARA VOCÊ EM APENAS ALGUNS MINUTOS!</h2>
+           <h2 className="titulo-principal">
+             DESCUBRA A CARREIRA IDEAL PARA VOCÊ EM APENAS ALGUNS MINUTOS!
+           </h2>
             <p className="card-text">Preencha o formulário para fazer o teste vocacional.</p>
             <Link to="/chat" className="btn btn-iniciar-teste mt-2 mb-2">
               Iniciar Teste
@@ -24,91 +24,38 @@ function Home() {
         </div>
       </div>
 
-      <img src="/banner.png" alt="banner demonstrativo" className="w-100" />
-
+      <img src="/banner.png" alt="banner demonstrativo" className="banner" />
 <div className="container my-5">
   <div className="row text-center">
     <div className="col-md-4 mb-4">
-      <div
-        className="card h-100 shadow"
-        style={{
-          backgroundColor: '#f8f9fa',
-          borderLeft: '6px solid #447EB8',
-          border: 'none',
-          borderRadius: '1rem',
-          transition: 'transform 0.3s ease, box-shadow 0.3s ease',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'translateY(-5px)';
-          e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.1)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'none';
-          e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.05)';
-        }}
-      >
-        <div className="card-body p-4 text-start">
-          <h5 style={{ color: '#447EB8', fontWeight: 'bold', marginBottom: '1rem' }}>O que é o Vocational Test?</h5>
-          <p style={{ color: '#333' }}>
-            É uma plataforma que utiliza inteligência artificial para ajudar jovens a descobrirem suas carreiras ideais com base em seus interesses e perfis.
-          </p>
-        </div>
+      <div className="card card-info h-100 shadow">
+        <h5>O que é o Vocational Test?</h5>
+        <p>
+          É uma plataforma que utiliza inteligência artificial para ajudar
+          jovens a descobrirem suas carreiras ideais com base em seus interesses
+          e perfis.
+        </p>
       </div>
     </div>
 
     <div className="col-md-4 mb-4">
-      <div
-        className="card h-100 shadow"
-        style={{
-          backgroundColor: '#f8f9fa',
-          borderLeft: '6px solid #447EB8',
-          border: 'none',
-          borderRadius: '1rem',
-          transition: 'transform 0.3s ease, box-shadow 0.3s ease',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'translateY(-5px)';
-          e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.1)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'none';
-          e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.05)';
-        }}
-      >
-        <div className="card-body p-4 text-start">
-          <h5 style={{ color: '#447EB8', fontWeight: 'bold', marginBottom: '1rem' }}>Como funciona o teste?</h5>
-          <p style={{ color: '#333' }}>
-            Você responde algumas perguntas, e nossa IA analisa suas respostas para indicar áreas profissionais que combinam com você.
-          </p>
-        </div>
+      <div className="card card-info h-100 shadow">
+        <h5>Como funciona o teste?</h5>
+        <p>
+          Você responde algumas perguntas, e nossa IA analisa suas respostas para
+          indicar áreas profissionais que combinam com você.
+        </p>
       </div>
     </div>
 
     <div className="col-md-4 mb-4">
-      <div
-        className="card h-100 shadow"
-        style={{
-          backgroundColor: '#f8f9fa',
-          borderLeft: '6px solid #447EB8',
-          border: 'none',
-          borderRadius: '1rem',
-          transition: 'transform 0.3s ease, box-shadow 0.3s ease',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'translateY(-5px)';
-          e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.1)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'none';
-          e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.05)';
-        }}
-      >
-        <div className="card-body p-4 text-start">
-          <h5 style={{ color: '#447EB8', fontWeight: 'bold', marginBottom: '1rem' }}>Benefícios da plataforma</h5>
-          <p style={{ color: '#333' }}>
-            Descoberta vocacional personalizada, facilidade de acesso, confidencialidade dos dados e resultados práticos para planejamento de carreira.
-          </p>
-        </div>
+      <div className="card card-info h-100 shadow">
+        <h5>Benefícios da plataforma</h5>
+        <p>
+          Descoberta vocacional personalizada, facilidade de acesso,
+          confidencialidade dos dados e resultados práticos para planejamento de
+          carreira.
+        </p>
       </div>
     </div>
   </div>
