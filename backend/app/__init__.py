@@ -15,8 +15,11 @@ def create_app():
     CORS(app, resources={r"/*": {"origins": [
         "http://localhost:5173",
         "http://localhost:3000",
-        "https://vocationaltest.com.br"
+        "https://vocationaltest.com.br",
+        "https://www.vocationaltest.com.br",
+        "https://vocationaltest.web.app"
     ]}})
+
 
     if not firebase_admin._apps:
         cred_base64 = os.getenv("FIREBASE_CREDENTIALS_BASE64")

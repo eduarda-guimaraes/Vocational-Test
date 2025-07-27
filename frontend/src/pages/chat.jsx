@@ -24,6 +24,7 @@ function Chat() {
   const [chatId, setChatId] = useState(null);
   const [userId, setUserId] = useState(null);
   const [userPhoto, setUserPhoto] = useState('/iconevazio.png');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -51,9 +52,9 @@ function Chat() {
     return () => unsubscribe();
   }, []);
 
- const enviarParaIA = async (mensagem) => {
+  const enviarParaIA = async (mensagem) => {
     const backendUrl = import.meta.env.VITE_API_URL;
-    console.log('VITE_API_URL:', backendUrl); 
+    console.log('VITE_API_URL:', backendUrl);
 
     try {
       const response = await fetch(`${backendUrl}/api/chat-vocacional`, {
@@ -69,7 +70,6 @@ function Chat() {
       return 'Houve um erro ao se conectar com a IA.';
     }
   };
-
 
   const salvarMensagem = async (autor, conteudo) => {
     if (!chatId || !userId) return;
@@ -104,7 +104,6 @@ function Chat() {
     }
   };
 
-
   const handleSend = async () => {
     if (!input.trim() || !chatId) return;
 
@@ -121,7 +120,10 @@ function Chat() {
     });
     await salvarMensagem('user', input);
 
+    setLoading(true);
     const respostaIA = await enviarParaIA(input);
+    setLoading(false);
+
     const botMessage = { sender: 'bot', text: respostaIA };
     setMessages((prev) => {
       const newMessages = [...prev, botMessage];
@@ -134,7 +136,6 @@ function Chat() {
       return newMessages;
     });
     await salvarMensagem('bot', respostaIA);
-
     await salvarResultado(respostaIA);
 
     setInput('');
@@ -151,7 +152,7 @@ function Chat() {
       <main style={{ flex: 1, minHeight: 'calc(100vh - 90px)' }}>
         <div className="container py-4" style={{ paddingTop: '30px' }}>
           {/* MENSAGEM EXPLICATIVA */}
-         <div className="alert text-center rounded-4 shadow-sm p-4" style={{ backgroundColor: '#e3f2fd', color: '#0d47a1' }}>
+          <div className="alert text-center rounded-4 shadow-sm p-4" style={{ backgroundColor: '#e3f2fd', color: '#0d47a1' }}>
             <h5 className="mb-2 fw-bold">Como funciona o teste vocacional?</h5>
             <p className="mb-0">
               Converse com nosso assistente sobre seus interesses. A inteligência artificial analisará suas respostas
@@ -193,6 +194,7 @@ function Chat() {
                   <img
                     src={msg.sender === 'user' ? userPhoto : '/logo.png'}
                     alt={msg.sender === 'user' ? 'Você' : 'Bot'}
+                    onError={(e) => { e.target.src = '/iconevazio.png'; }}
                     style={{
                       width: '30px',
                       height: '30px',
@@ -227,7 +229,7 @@ function Chat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyPress}
-              disabled={!chatId}
+              disabled={!chatId || loading}
               style={{
                 height: '50px',
                 border: '1px solid #ccc',
@@ -237,9 +239,9 @@ function Chat() {
             <button
               className="btn btn-primary rounded-pill px-4"
               onClick={handleSend}
-              disabled={!chatId}
+              disabled={!chatId || loading}
             >
-              Enviar
+              {loading ? 'Enviando...' : 'Enviar'}
             </button>
           </div>
         </div>
