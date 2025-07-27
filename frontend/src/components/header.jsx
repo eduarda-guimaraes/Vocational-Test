@@ -27,10 +27,10 @@ function Header() {
     <header>
       <nav className="navbar fixed-top bg-white shadow-sm p-3">
         <div className="container-fluid mx-5">
-          <a className="navbar-brand d-flex align-items-center" href="#">
-            <img src="/logo.png" alt="Logo" width="30" height="24" className="d-inline-block align-text-top" />
-            <span className="ms-3">Vocational Test</span>
-          </a>
+         <Link to="/home" className="navbar-brand d-flex align-items-center">
+          <img src="/logo.png" alt="Logo" width="30" height="24" className="d-inline-block align-text-top" />
+          <span className="ms-3">Vocational Test</span>
+        </Link>
           <div className="d-flex ms-auto align-items-center">
             <Link className={`nav-link mx-3 ${pathname === '/home' ? 'active' : ''}`} to="/home">Home</Link>
             <Link className={`nav-link mx-3 ${pathname === '/chat' ? 'active' : ''}`} to="/chat">Chat</Link>

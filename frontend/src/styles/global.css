@@ -1,25 +1,23 @@
-*{
-    padding: 0%;
-    margin: 0%;
-    box-sizing: border-box;
+/* Reset global */
+* {
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
 }
 
+/* Espaçamento do header */
 .header-spacing {
   margin-top: 130px;
 }
 
+/* Navbar */
 .navbar {
-    z-index: 1030; /* Garante que fique acima de outros elementos */
-    background-color: #ffffff !important; /* Cor de fundo consistente */
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Pequena sombra para destacar */
-  }  
+  z-index: 1030;
+  background-color: #ffffff !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
 
-.text-justified {
-    text-align: justify;
-    text-indent: 2em; /* Adiciona um recuo no início do parágrafo */
-    hyphens: auto;  /* Permite a quebra de palavras, evitando grandes espaços */
-  }  
-
+/* Link da navbar */
 .nav-link {
   position: relative;
   text-decoration: none;
@@ -43,7 +41,8 @@
   color: #447eb8;
 }
 
-.nav-link:hover::after {
+.nav-link:hover::after,
+.nav-link.active::after {
   width: 100%;
 }
 
@@ -52,28 +51,27 @@
   font-weight: 500;
 }
 
-.nav-link.active::after {
-  width: 100%;
-}
-
-  
+/* Botão "Iniciar Teste" */
 .btn-iniciar-teste {
-    color: #000000;
-    background-color: #ffffff;
-    border-radius: 50px;
-    width: 30%;
-    height: 40px;
-    transition: all 0.3s ease;
-    font-weight: 500;
-}
-  
-.btn-iniciar-teste:hover {
-    background-color: #0097B2;
-    color: #ffffff;
-    transform: translateY(-2px);
-    
+  color: #000000;
+  background-color: #ffffff;
+  border-radius: 50px;
+  padding: 10px 24px;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  white-space: nowrap;
+  text-align: center;
+  max-width: 80%;
+  width: auto;
 }
 
+.btn-iniciar-teste:hover {
+  background-color: #0097B2;
+  color: #ffffff;
+  transform: translateY(-2px);
+}
+
+/* Botão Perfil */
 .btn-perfil {
   background-color: #447EB8;
   color: #fff;
@@ -84,22 +82,126 @@
 }
 
 .btn-perfil:hover {
-  background-color: #366ba1; /* tom mais escuro no hover */
+  background-color: #366ba1;
   transform: scale(1.02);
   cursor: pointer;
 }
 
-/* Remove a linha inferior do perfil */
+/* Ajustes no botão de perfil da navbar */
 .nav-perfil::after {
   display: none !important;
 }
 
-/* Impede que o link mude de cor no hover */
 .nav-perfil:hover {
   color: inherit !important;
 }
 
-/* Muda apenas a cor do ícone dentro do botão de perfil */
 .nav-perfil:hover .bi-person {
-  color: #447eb8; /* Azul desejado no hover */
+  color: #447eb8;
+}
+
+/* Texto justificado */
+.text-justified {
+  text-align: justify;
+  text-indent: 2em;
+  hyphens: auto;
+}
+
+/* Título principal */
+.titulo-principal {
+  font-size: 2.2rem;
+  text-align: center;
+  font-weight: bold;
+  line-height: 1.2;
+  margin-bottom: 1rem;
+  max-width: 90%;
+}
+
+@media (max-width: 768px) {
+  .titulo-principal {
+    font-size: 1.6rem;
+  }
+
+  .row.text-center {
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .titulo-principal {
+    font-size: 1.3rem;
+    line-height: 1.4;
+  }
+}
+
+/* Banner */
+.banner {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin-top: -20px;
+}
+
+/* Padding em telas pequenas */
+@media (max-width: 576px) {
+  body {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .accordion {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .card-body p {
+    font-size: 0.95rem;
+  }
+}
+
+/* Card body */
+.card-body {
+  padding: 1rem;
+}
+
+.card-body p {
+  text-align: center;
+  font-size: 1rem;
+  margin-top: 0.5rem;
+  max-width: 85%;
+}
+
+/* Card azul com info */
+.card-info {
+  background-color: #f8f9fa;
+  border-left: 6px solid #447EB8;
+  border-radius: 1rem;
+  border: none;
+  height: 100%;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  text-align: center;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+.card-info:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
+}
+
+.card-info h5 {
+  color: #447EB8;
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+
+.card-info p {
+  color: #333;
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5;
+  flex-grow: 1;
 }
