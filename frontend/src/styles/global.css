@@ -136,10 +136,10 @@
 
 /* Banner */
 .banner {
-  width: 100%;
   height: auto;
+  max-width: 100%;
+  object-fit: cover;
   display: block;
-  margin-top: -20px;
 }
 
 /* Padding em telas pequenas */
@@ -204,4 +204,10 @@
   font-size: 1rem;
   line-height: 1.5;
   flex-grow: 1;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
 }

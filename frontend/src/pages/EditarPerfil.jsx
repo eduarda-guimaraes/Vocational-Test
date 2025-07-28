@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import { auth, db, provider } from '../services/firebase';
 import {
   updateProfile,
-  updateEmail,
   updatePassword,
+  updateEmail,
   reauthenticateWithCredential,
   EmailAuthProvider,
   deleteUser,
   reauthenticateWithPopup,
+  sendEmailVerification,
 } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -27,8 +28,9 @@ export default function EditarPerfil() {
   const [showModal, setShowModal] = useState(false);
   const [senhaExcluir, setSenhaExcluir] = useState('');
   const [erroExcluir, setErroExcluir] = useState('');
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [mostrarSenhaAtual, setMostrarSenhaAtual] = useState(false);
   const [mostrarSenhaExcluir, setMostrarSenhaExcluir] = useState(false);
-
   const [fotoPreview, setFotoPreview] = useState(user?.photoURL || '/iconevazio.png');
   const [novaFoto, setNovaFoto] = useState(null);
 
@@ -49,7 +51,6 @@ export default function EditarPerfil() {
 
   const uploadParaCloudinary = async (base64Image) => {
     const base64SemPrefixo = base64Image.replace(/^data:image\/\w+;base64,/, '');
-
     const formData = new FormData();
     formData.append('file', `data:image/jpeg;base64,${base64SemPrefixo}`);
     formData.append('upload_preset', uploadPreset);
@@ -74,57 +75,76 @@ export default function EditarPerfil() {
     setErro('');
     setMensagem('');
 
+    if (!nome.trim()) return setErro('O nome não pode estar em branco.');
+
     const isSenha = user.providerData[0]?.providerId === 'password';
     const nomeAlterado = nome !== user.displayName;
+    const emailAlterado = email !== user.email;
     const senhaAlterada = novaSenha.length >= 6;
     const fotoAlterada = novaFoto !== null;
 
+    let novaFotoURL = null;
+
     try {
-      if (isSenha && senhaAlterada) {
-        if (!senhaAtual || senhaAtual.length < 6) {
-          setErro('Digite sua senha atual para confirmar as alterações.');
-          return;
+      if ((isSenha && (senhaAlterada || emailAlterado)) || nomeAlterado || fotoAlterada) {
+        if (isSenha && (senhaAlterada || emailAlterado)) {
+          if (!senhaAtual || senhaAtual.length < 6) {
+            setErro('Digite sua senha atual para confirmar as alterações.');
+            return;
+          }
+          const credential = EmailAuthProvider.credential(user.email, senhaAtual);
+          await reauthenticateWithCredential(user, credential);
+          console.log('Reautenticado com senha');
+        } else {
+          await reauthenticateWithPopup(user, provider);
+          console.log('Reautenticado com popup');
         }
-        const credential = EmailAuthProvider.credential(user.email, senhaAtual);
-        await reauthenticateWithCredential(user, credential);
-      } else if (nomeAlterado || fotoAlterada) {
-        await reauthenticateWithPopup(user, provider);
       }
 
-      let novaFotoURL = null;
-      if (fotoAlterada) {
-        novaFotoURL = await uploadParaCloudinary(novaFoto);
-      }
+    if (emailAlterado && isSenha) {
+      await updateEmail(user, email); // Isso já dispara o e-mail automaticamente
+      setMensagem('Enviamos um e-mail de confirmação para seu endereço anterior. A alteração só será concluída após a confirmação.');
+    }
 
-      if (nomeAlterado || novaFotoURL) {
-        await updateProfile(user, {
-          displayName: nome,
-          ...(novaFotoURL && { photoURL: novaFotoURL }),
-        });
-
-        const docRef = doc(db, 'usuarios', user.uid);
-        await updateDoc(docRef, {
-          nome,
-          ...(novaFotoURL && { fotoPerfil: novaFotoURL }),
-        });
-      }
 
       if (senhaAlterada && isSenha) {
         await updatePassword(user, novaSenha);
       }
 
-      setMensagem('Dados atualizados com sucesso!');
+      if (fotoAlterada) {
+        novaFotoURL = await uploadParaCloudinary(novaFoto);
+        await updateProfile(user, {
+          photoURL: novaFotoURL,
+        });
+      }
+
+      if (nomeAlterado) {
+        await updateProfile(user, { displayName: nome });
+      }
+
+      const docRef = doc(db, 'usuarios', user.uid);
+      await updateDoc(docRef, {
+        nome,
+        email,
+        ...(novaFotoURL && { fotoPerfil: novaFotoURL }),
+      });
+
+      await user.reload();
+      setEmail(user.email);
+
+      if (!emailAlterado) {
+        setMensagem('Dados atualizados com sucesso!');
+      }
+
       setTimeout(() => navigate('/perfil', { state: { voltarPara } }), 1500);
     } catch (error) {
-      console.error(error);
+      console.error('Erro completo:', error);
       setErro('Erro ao atualizar dados: ' + error.message);
     }
   };
 
-
   const confirmarExclusao = async () => {
     setErroExcluir('');
-
     try {
       if (user.providerData[0]?.providerId === 'password') {
         const credential = EmailAuthProvider.credential(user.email, senhaExcluir);
@@ -132,8 +152,8 @@ export default function EditarPerfil() {
       } else {
         await reauthenticateWithPopup(user, provider);
       }
-
       await deleteUser(user);
+      await auth.signOut();
       navigate('/');
     } catch (error) {
       console.error(error);
@@ -145,93 +165,40 @@ export default function EditarPerfil() {
     <div className="container d-flex justify-content-center align-items-center py-5">
       <div className="card p-4 shadow-sm" style={{ maxWidth: '450px', width: '100%' }}>
         <h4 className="mb-4 text-center">Editar Perfil</h4>
-
         <div className="text-center mb-3">
-          <img
-            src={fotoPreview}
-            alt="Foto de perfil"
-            style={{
-              width: '100px',
-              height: '100px',
-              borderRadius: '50%',
-              objectFit: 'cover',
-              border: '3px solid #447eb8'
-            }}
-          />
+          <img src={fotoPreview} alt="Foto de perfil" style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #447eb8' }} />
         </div>
-
         <div className="mb-3">
           <input type="file" className="form-control" accept="image/*" onChange={handleFotoChange} />
         </div>
-
         <form onSubmit={handleSalvar}>
           <div className="mb-3">
-            <input
-              type="text"
-              className="form-control"
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              placeholder="Nome"
-            />
+            <input type="text" className="form-control" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome" required />
           </div>
           <div className="mb-3">
-            <input
-              type="email"
-              className="form-control"
-              value={email}
-              readOnly
-              disabled
-              style={{ backgroundColor: '#e9ecef', cursor: 'not-allowed' }}
-            />
+            <input type="email" className="form-control" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" required />
           </div>
-          <div className="mb-3">
-            <input
-              type="password"
-              className="form-control"
-              value={novaSenha}
-              onChange={(e) => setNovaSenha(e.target.value)}
-              placeholder="Nova senha (opcional)"
-            />
+          <div className="mb-3 position-relative">
+            <input type={mostrarSenha ? 'text' : 'password'} className="form-control" value={novaSenha} onChange={(e) => setNovaSenha(e.target.value)} placeholder="Nova senha (opcional)" />
+            <button type="button" className="position-absolute top-50 end-0 translate-middle-y me-2" onClick={() => setMostrarSenha(!mostrarSenha)} style={{ backgroundColor: 'transparent', border: 'none' }}>
+              <i className={`bi ${mostrarSenha ? 'bi-eye' : 'bi-eye-slash'}`} style={{ color: '#447EB8' }}></i>
+            </button>
           </div>
           {user.providerData[0]?.providerId === 'password' && (
-            <div className="mb-3">
-              <input
-                type="password"
-                className="form-control"
-                value={senhaAtual}
-                onChange={(e) => setSenhaAtual(e.target.value)}
-                placeholder="Senha atual (obrigatória)"
-                required
-              />
+            <div className="mb-3 position-relative">
+              <input type={mostrarSenhaAtual ? 'text' : 'password'} className="form-control" value={senhaAtual} onChange={(e) => setSenhaAtual(e.target.value)} placeholder="Senha atual (obrigatória)" required />
+              <button type="button" className="position-absolute top-50 end-0 translate-middle-y me-2" onClick={() => setMostrarSenhaAtual(!mostrarSenhaAtual)} style={{ backgroundColor: 'transparent', border: 'none' }}>
+                <i className={`bi ${mostrarSenhaAtual ? 'bi-eye' : 'bi-eye-slash'}`} style={{ color: '#447EB8' }}></i>
+              </button>
             </div>
           )}
           {erro && <p className="text-danger">{erro}</p>}
           {mensagem && <p className="text-success">{mensagem}</p>}
-          <button
-            type="submit"
-            className="btn w-100 mb-2"
-            style={{ backgroundColor: '#447EB8', color: '#fff' }}
-          >
-            Salvar alterações
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary w-100 mb-3"
-            onClick={() => navigate('/perfil', { state: { voltarPara } })}
-          >
-            Voltar
-          </button>
+          <button type="submit" className="btn w-100 mb-2" style={{ backgroundColor: '#447EB8', color: '#fff' }}>Salvar alterações</button>
+          <button type="button" className="btn btn-secondary w-100 mb-3" onClick={() => navigate('/perfil', { state: { voltarPara } })}>Voltar</button>
         </form>
-
         <hr />
-
-        <button
-          className="btn btn-outline-danger w-100 mt-2"
-          onClick={() => setShowModal(true)}
-        >
-          Excluir Conta
-        </button>
-
+        <button className="btn btn-outline-danger w-100 mt-2" onClick={() => setShowModal(true)}>Excluir Conta</button>
         {showModal && (
           <div className="modal d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
             <div className="modal-dialog modal-dialog-centered">
@@ -245,24 +212,8 @@ export default function EditarPerfil() {
                     <>
                       <p>Digite sua senha para confirmar a exclusão:</p>
                       <div className="position-relative">
-                        <input
-                          type={mostrarSenhaExcluir ? 'text' : 'password'}
-                          className="form-control"
-                          value={senhaExcluir}
-                          onChange={(e) => setSenhaExcluir(e.target.value)}
-                          placeholder="Senha"
-                        />
-                        <button
-                          type="button"
-                          className="position-absolute top-50 end-0 translate-middle-y me-2"
-                          onClick={() => setMostrarSenhaExcluir((prev) => !prev)}
-                          style={{
-                            backgroundColor: 'transparent',
-                            border: 'none',
-                            padding: 0,
-                            cursor: 'pointer',
-                          }}
-                        >
+                        <input type={mostrarSenhaExcluir ? 'text' : 'password'} className="form-control" value={senhaExcluir} onChange={(e) => setSenhaExcluir(e.target.value)} placeholder="Senha" />
+                        <button type="button" className="position-absolute top-50 end-0 translate-middle-y me-2" onClick={() => setMostrarSenhaExcluir((prev) => !prev)} style={{ backgroundColor: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}>
                           <i className={`bi ${mostrarSenhaExcluir ? 'bi-eye' : 'bi-eye-slash'}`} style={{ color: '#447EB8' }}></i>
                         </button>
                       </div>
