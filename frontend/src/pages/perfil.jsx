@@ -23,6 +23,7 @@ function Perfil() {
   useEffect(() => {
     const fetchUserData = async () => {
       const currentUser = auth.currentUser;
+      await currentUser?.reload();
 
       if (currentUser) {
         try {
@@ -166,7 +167,6 @@ function Perfil() {
         </div>
       </main>
 
-      {/* ❌ Footer permanece no layout global, então não renderizamos aqui */}
       {showLogoutModal && (
         <div className="modal d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog modal-dialog-centered">
