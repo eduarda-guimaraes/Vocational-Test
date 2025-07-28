@@ -1,9 +1,11 @@
+// src/pages/Cadastro.jsx
 import React, { useState } from 'react';
 import {
   createUserWithEmailAndPassword,
   sendEmailVerification,
   signInWithPopup,
   fetchSignInMethodsForEmail,
+  signOut
 } from 'firebase/auth';
 import { auth, db, provider } from '../services/firebase';
 import { collection, doc, setDoc, getDoc } from 'firebase/firestore';
@@ -27,20 +29,9 @@ export default function Cadastro() {
     e.preventDefault();
     setErro('');
 
-    if (!emailEhValido(email)) {
-      setErro('Formato de email inválido.');
-      return;
-    }
-
-    if (senha !== confirmSenha) {
-      setErro('As senhas não coincidem.');
-      return;
-    }
-
-    if (!senhaEhForte(senha)) {
-      setErro('A senha deve ter no mínimo 6 caracteres, incluindo letras, números e um caractere especial.');
-      return;
-    }
+    if (!emailEhValido(email)) return setErro('Formato de email inválido.');
+    if (senha !== confirmSenha) return setErro('As senhas não coincidem.');
+    if (!senhaEhForte(senha)) return setErro('A senha deve ter no mínimo 6 caracteres, com letras, números e símbolo.');
 
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
@@ -48,12 +39,12 @@ export default function Cadastro() {
 
       await sendEmailVerification(usuario);
 
-      const usuarioRef = doc(collection(db, "usuarios"), usuario.uid);
-      await setDoc(usuarioRef, {
-        nome: nome,
-        email: email,
+      await setDoc(doc(db, "usuarios", usuario.uid), {
+        nome,
+        email,
         criadoEm: new Date(),
         emailVerificado: false,
+        foto: null,
       });
 
       localStorage.setItem('nomeUsuario', nome);
@@ -63,18 +54,10 @@ export default function Cadastro() {
       navigate('/aguardando-verificacao');
     } catch (err) {
       console.error('Erro Firebase:', err.code);
-      switch (err.code) {
-        case 'auth/email-already-in-use':
-          setErro('Este e-mail já está cadastrado. Tente fazer login ou use outro e-mail.');
-          break;
-        case 'auth/invalid-email':
-          setErro('O e-mail fornecido é inválido.');
-          break;
-        case 'auth/weak-password':
-          setErro('A senha é muito fraca. Tente uma senha mais forte.');
-          break;
-        default:
-          setErro('Erro ao cadastrar. Tente novamente.');
+      if (err.code === 'auth/email-already-in-use') {
+        setErro('Este e-mail já está cadastrado. Faça login ou use outro e-mail.');
+      } else {
+        setErro('Erro ao cadastrar. Tente novamente.');
       }
     }
   };
@@ -82,19 +65,16 @@ export default function Cadastro() {
   const loginComGoogle = async () => {
     setErro('');
     try {
-      // Abre popup e recupera email ANTES de salvar
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
-      // Verifica se já existe conta com senha associada a esse e-mail
       const methods = await fetchSignInMethodsForEmail(auth, user.email);
       if (methods.includes('password')) {
-        setErro('Este e-mail já está registrado com senha. Faça login usando e-mail e senha.');
-        await auth.signOut(); // Desloga login com Google
+        setErro('Este e-mail já possui conta com senha. Faça login com email e senha.');
+        await signOut(auth);
         return;
       }
 
-      // Verifica se já existe no Firestore
       const userRef = doc(db, "usuarios", user.uid);
       const userSnap = await getDoc(userRef);
 
@@ -109,10 +89,10 @@ export default function Cadastro() {
       }
 
       localStorage.setItem('nomeUsuario', user.displayName || '');
-      navigate('/definir-senha'); // ou /perfil se já quiser pular a senha
+      navigate('/definir-senha'); // ou '/perfil'
     } catch (error) {
       console.error('Erro no login com Google:', error);
-      setErro('Não foi possível cadastrar com o Google.');
+      setErro('Erro ao cadastrar com o Google. Tente novamente.');
     }
   };
 
@@ -140,9 +120,7 @@ export default function Cadastro() {
             </button>
           </div>
           {erro && <p className="text-danger mb-3">{erro}</p>}
-          <button type="submit" className="btn w-100 mb-2" style={{ backgroundColor: '#447EB8', color: '#fff' }}>
-            Cadastrar
-          </button>
+          <button type="submit" className="btn w-100 mb-2" style={{ backgroundColor: '#447EB8', color: '#fff' }}>Cadastrar</button>
         </form>
 
         <button type="button" onClick={loginComGoogle} className="btn btn-outline-danger w-100 mb-3">
