@@ -1,4 +1,3 @@
-# Deploy to Firebase Hosting on merge
 name: Deploy to Firebase Hosting on merge
 
 on:
@@ -14,6 +13,10 @@ jobs:
 
       - name: Instalar dependências
         run: npm install
+        working-directory: frontend
+
+      - name: Corrigir permissão do Vite
+        run: chmod +x node_modules/.bin/vite
         working-directory: frontend
 
       - name: Buildar projeto
