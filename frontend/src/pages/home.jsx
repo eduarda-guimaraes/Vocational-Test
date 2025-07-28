@@ -8,8 +8,8 @@ import { Link } from 'react-router-dom';
 function Home() {
   return (
     <>
-      <Header />
-
+      <Header />  
+      <div style={{ height: '40px' }}></div> 
       <div className="container-fluid p-0" style={{ paddingTop: '40px' }}>
         <div className="card w-100 m-0 rounded-0" style={{ backgroundColor: '#447eb8', height: '300px' }}>
           <div className="card-body d-flex flex-column align-items-center justify-content-center text-white">
@@ -24,8 +24,8 @@ function Home() {
         </div>
       </div>
 
-      <img src="/banner.png" alt="banner demonstrativo" className="banner" />
-<div className="container my-5">
+     <img src="/banner.png" alt="banner demonstrativo" className="img-fluid w-100 banner" />
+<div className="container my-5"> 
   <div className="row text-center">
     <div className="col-md-4 mb-4">
       <div className="card card-info h-100 shadow">
