@@ -18,12 +18,24 @@ jobs:
       - name: Instalar dependências do frontend
         run: npm install --prefix frontend
 
+      - name: Criar arquivo .env.production com secrets
+        run: |
+          echo "VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}" >> frontend/.env.production
+          echo "VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}" >> frontend/.env.production
+          echo "VITE_FIREBASE_PROJECT_ID=${{ secrets.VITE_FIREBASE_PROJECT_ID }}" >> frontend/.env.production
+          echo "VITE_FIREBASE_STORAGE_BUCKET=${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}" >> frontend/.env.production
+          echo "VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}" >> frontend/.env.production
+          echo "VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}" >> frontend/.env.production
+          echo "VITE_FIREBASE_MEASUREMENT_ID=${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}" >> frontend/.env.production
+
       - name: Corrigir permissão do Vite
         run: chmod +x node_modules/.bin/vite
         working-directory: frontend
 
-      - name: Buildar projeto frontend
+      - name: Buildar projeto frontend com env de produção
         run: npm run build --prefix frontend
+        env:
+          NODE_ENV: production
 
       - name: Deploy para Firebase Hosting (Preview)
         uses: FirebaseExtended/action-hosting-deploy@v0
