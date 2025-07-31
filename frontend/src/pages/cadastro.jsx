@@ -1,4 +1,3 @@
-// src/pages/Cadastro.jsx
 import React, { useState } from 'react';
 import {
   createUserWithEmailAndPassword,
@@ -16,41 +15,88 @@ export default function Cadastro() {
   const [senha, setSenha] = useState('');
   const [confirmSenha, setConfirmSenha] = useState('');
   const [nome, setNome] = useState('');
+  const [dataNascimento, setDataNascimento] = useState('');
+  const [fotoPreview, setFotoPreview] = useState(null);
+  const [fotoFile, setFotoFile] = useState(null);
   const [erro, setErro] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [mostrarConfirmSenha, setMostrarConfirmSenha] = useState(false);
   const navigate = useNavigate();
 
+  // Validações de email e senha
   const emailEhValido = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const senhaEhForte = (senha) =>
     /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{6,}$/.test(senha);
+
+  // Função para fazer o upload da foto no Cloudinary
+  const uploadParaCloudinary = async (file) => {
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', uploadPreset);
+
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error('Erro ao enviar imagem para o Cloudinary');
+
+    const data = await response.json();
+    return data.secure_url; // Retorna a URL segura da imagem
+  };
+
+  // Função para lidar com a mudança da foto de perfil
+  const handleFotoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setFotoPreview(reader.result);
+      reader.readAsDataURL(file);
+      setFotoFile(file); // Armazena o arquivo da foto selecionada
+    }
+  };
 
   const handleCadastro = async (e) => {
     e.preventDefault();
     setErro('');
 
+    // Validações do formulário
     if (!emailEhValido(email)) return setErro('Formato de email inválido.');
     if (senha !== confirmSenha) return setErro('As senhas não coincidem.');
     if (!senhaEhForte(senha)) return setErro('A senha deve ter no mínimo 6 caracteres, com letras, números e símbolo.');
 
     try {
+      // Criação do usuário no Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
       const usuario = userCredential.user;
 
+      // Enviar email de verificação
       await sendEmailVerification(usuario);
 
+      // Faz upload da foto para o Cloudinary, caso o usuário tenha escolhido uma
+      let fotoURL = null;
+      if (fotoFile) {
+        fotoURL = await uploadParaCloudinary(fotoFile);
+      }
+
+      // Salva os dados no Firestore
       await setDoc(doc(db, "usuarios", usuario.uid), {
         nome,
         email,
+        dataNascimento,  // Adicionando a data de nascimento
+        fotoPerfil: fotoURL,  // Foto de perfil armazenada no Firestore
         criadoEm: new Date(),
-        emailVerificado: false,
-        foto: null,
+        emailVerificado: false, // Definido como false, pois o e-mail ainda não foi verificado
       });
 
+      // Armazenando as informações temporariamente antes da verificação de email
       localStorage.setItem('nomeUsuario', nome);
       sessionStorage.setItem('emailTemp', email);
       sessionStorage.setItem('senhaTemp', senha);
 
+      // Redireciona para a página de aguardo de verificação
       navigate('/aguardando-verificacao');
     } catch (err) {
       console.error('Erro Firebase:', err.code);
@@ -118,6 +164,13 @@ export default function Cadastro() {
             <button type="button" className="position-absolute top-50 end-0 translate-middle-y me-2" onClick={() => setMostrarConfirmSenha(!mostrarConfirmSenha)} style={{ backgroundColor: 'transparent', border: 'none' }}>
               <i className={`bi ${mostrarConfirmSenha ? 'bi-eye' : 'bi-eye-slash'}`} style={{ color: '#447EB8' }}></i>
             </button>
+          </div>
+          <div className="mb-3">
+            <input type="date" className="form-control" placeholder="Data de Nascimento" value={dataNascimento} onChange={(e) => setDataNascimento(e.target.value)} />
+          </div>
+          <div className="mb-3">
+            <input type="file" className="form-control" accept="image/*" onChange={handleFotoChange} />
+            {fotoPreview && <img src={fotoPreview} alt="Preview" style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '50%', marginTop: '10px' }} />}
           </div>
           {erro && <p className="text-danger mb-3">{erro}</p>}
           <button type="submit" className="btn w-100 mb-2" style={{ backgroundColor: '#447EB8', color: '#fff' }}>Cadastrar</button>

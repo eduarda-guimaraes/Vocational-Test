@@ -13,7 +13,8 @@ function Perfil() {
     nome: '',
     email: '',
     senha: '********',
-    foto: '/iconevazio.png'
+    foto: '/iconevazio.png', // Foto de perfil padrão
+    dataNascimento: '' // Adicionando data de nascimento
   });
   const [historico, setHistorico] = useState([]);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -23,7 +24,7 @@ function Perfil() {
   useEffect(() => {
     const fetchUserData = async () => {
       const currentUser = auth.currentUser;
-      await currentUser?.reload();
+      await currentUser?.reload(); // Recarrega os dados do usuário para garantir que as atualizações sejam refletidas
 
       if (currentUser) {
         try {
@@ -35,7 +36,8 @@ function Perfil() {
             nome: currentUser.displayName || dados.nome || '',
             email: currentUser.email,
             senha: '********',
-            foto: currentUser.photoURL || dados.fotoPerfil || '/iconevazio.png'
+            foto: currentUser.photoURL || dados.fotoPerfil || '/iconevazio.png',
+            dataNascimento: dados.dataNascimento || '' // Recuperando a data de nascimento
           };
 
           setUserData(dadosUsuario);
@@ -87,6 +89,7 @@ function Perfil() {
 
           <div className="mb-3"><strong>Nome:</strong> {userData.nome}</div>
           <div className="mb-3"><strong>Email:</strong> {userData.email}</div>
+          <div className="mb-3"><strong>Data de Nascimento:</strong> {userData.dataNascimento || 'Não fornecida'}</div>
           <div className="mb-4"><strong>Senha:</strong> {userData.senha}</div>
 
           <button
