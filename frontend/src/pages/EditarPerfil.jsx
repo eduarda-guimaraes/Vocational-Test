@@ -37,16 +37,7 @@ export default function EditarPerfil() {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
   const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
-  const handleFotoChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setFotoPreview(reader.result);
-      reader.readAsDataURL(file);
-      setNovaFotoFile(file);
-    }
-  };
-
+  // Função para lidar com o upload da imagem para o Cloudinary
   const uploadParaCloudinary = async (file) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -60,70 +51,84 @@ export default function EditarPerfil() {
     if (!response.ok) throw new Error('Erro ao enviar imagem para o Cloudinary');
 
     const data = await response.json();
-    return data.secure_url;
+    return data.secure_url; // Retorna a URL segura da imagem no Cloudinary
   };
 
-const handleSalvar = async () => {
-  setMensagem('');
-  setErro('');
-  try {
-    const user = auth.currentUser;
-    const isSenha = user.providerData[0]?.providerId === 'password';
+  // Função para lidar com a mudança de foto
+  const handleFotoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setFotoPreview(reader.result);
+      reader.readAsDataURL(file);
+      setNovaFotoFile(file); // Armazena o arquivo selecionado
+    }
+  };
 
-    // Verifica se e-mail será alterado
-    const emailAlterado = email !== user.email;
+  // Função para salvar as alterações no perfil
+  const handleSalvar = async () => {
+    setMensagem('');
+    setErro('');
+    try {
+      const user = auth.currentUser;
+      const isSenha = user.providerData[0]?.providerId === 'password';
 
-    // Reautenticando o usuário caso o e-mail ou senha tenha sido alterado
-    if (emailAlterado && isSenha) {
-      await user.reload(); // Garante dados atualizados
-      if (!user.emailVerified) {
-        setMensagem('Verifique seu e-mail atual antes de alterá-lo.');
-        return;
+      // Verifica se o e-mail será alterado
+      const emailAlterado = email !== user.email;
+
+      // Reautenticando o usuário caso o e-mail ou senha tenha sido alterado
+      if (emailAlterado && isSenha) {
+        await user.reload(); // Garante dados atualizados
+        if (!user.emailVerified) {
+          setMensagem('Verifique seu e-mail atual antes de alterá-lo.');
+          return;
+        }
+
+        const cred = EmailAuthProvider.credential(user.email, senhaAtual);
+        await reauthenticateWithCredential(user, cred);
       }
 
-      const cred = EmailAuthProvider.credential(user.email, senhaAtual);
-      await reauthenticateWithCredential(user, cred);
+      // Verifica se a foto foi alterada e faz upload
+      let fotoURL = user.photoURL; // Mantém a foto atual se o usuário não escolher uma nova
+      if (novaFotoFile) {
+        fotoURL = await uploadParaCloudinary(novaFotoFile); // Se escolher nova foto, envia para o Cloudinary
+      }
+
+      // Atualizando o nome e foto de perfil
+      await updateProfile(user, {
+        displayName: nome,
+        photoURL: fotoURL, // Usa a foto atual ou a nova
+      });
+
+      // Atualizando dados no Firestore
+      const docRef = doc(db, 'usuarios', user.uid);
+      await updateDoc(docRef, {
+        nome,
+        email,
+        fotoPerfil: fotoURL, // Atualiza a foto no Firestore
+      });
+
+      // Atualizando e-mail
+      if (emailAlterado) {
+        await updateEmail(user, email);
+        await sendEmailVerification(user); // Envia o e-mail de verificação para o novo e-mail
+        setMensagem('Enviamos um e-mail de confirmação para seu novo endereço de e-mail.');
+      }
+
+      // Atualizando senha
+      if (novaSenha.length >= 6 && isSenha) {
+        await updatePassword(user, novaSenha);
+      }
+
+      setMensagem('Alterações salvas com sucesso!');
+      navigate('/perfil'); // Redireciona para a página de perfil após salvar
+    } catch (error) {
+      console.error(error);
+      setErro('Erro ao atualizar: ' + error.message);
     }
+  };
 
-    // Verifica se a foto foi alterada e faz upload
-    let fotoURL = user.photoURL;
-    if (novaFotoFile) {
-      fotoURL = await uploadParaCloudinary(novaFotoFile);
-    }
-
-    // Atualizando o nome e foto de perfil
-    await updateProfile(user, {
-      displayName: nome,
-      photoURL: fotoURL,
-    });
-
-    // Atualizando dados no Firestore
-    const docRef = doc(db, 'usuarios', user.uid);
-    await updateDoc(docRef, {
-      nome,
-      email,
-      fotoPerfil: fotoURL,
-    });
-
-    // Atualizando e-mail
-    if (emailAlterado) {
-      await updateEmail(user, email);
-      await sendEmailVerification(user); // Envia o e-mail de verificação para o novo e-mail
-      setMensagem('Enviamos um e-mail de confirmação para seu novo endereço de e-mail.');
-    }
-
-    // Atualizando senha
-    if (novaSenha.length >= 6 && isSenha) {
-      await updatePassword(user, novaSenha);
-    }
-
-    setMensagem('Alterações salvas com sucesso!');
-  } catch (error) {
-    console.error(error);
-    setErro('Erro ao atualizar: ' + error.message);
-  }
-};
-
+  // Função para confirmar a exclusão da conta
   const confirmarExclusao = async () => {
     setErroExcluir('');
     try {
@@ -215,4 +220,4 @@ const handleSalvar = async () => {
       </div>
     </div>
   );
-}  
+}
