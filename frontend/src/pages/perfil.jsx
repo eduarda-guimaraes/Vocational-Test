@@ -20,41 +20,41 @@ function Perfil() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      const currentUser = auth.currentUser;
-      await currentUser?.reload();
+useEffect(() => {
+  const fetchUserData = async () => {
+    const currentUser = auth.currentUser;
+    await currentUser?.reload(); // Recarrega os dados do usuário para garantir que as atualizações sejam refletidas
 
-      if (currentUser) {
-        try {
-          const docRef = doc(db, 'usuarios', currentUser.uid);
-          const docSnap = await getDoc(docRef);
-          const dados = docSnap.exists() ? docSnap.data() : {};
+    if (currentUser) {
+      try {
+        const docRef = doc(db, 'usuarios', currentUser.uid);
+        const docSnap = await getDoc(docRef);
+        const dados = docSnap.exists() ? docSnap.data() : {};
 
-          const dadosUsuario = {
-            nome: currentUser.displayName || dados.nome || '',
-            email: currentUser.email,
-            senha: '********',
-            foto: currentUser.photoURL || dados.fotoPerfil || '/iconevazio.png'
-          };
+        const dadosUsuario = {
+          nome: currentUser.displayName || dados.nome || '',
+          email: currentUser.email,
+          senha: '********',
+          foto: currentUser.photoURL || dados.fotoPerfil || '/iconevazio.png'
+        };
 
-          setUserData(dadosUsuario);
-        } catch (error) {
-          console.error('Erro ao buscar dados do Firestore:', error);
-        }
+        setUserData(dadosUsuario);
+      } catch (error) {
+        console.error('Erro ao buscar dados do Firestore:', error);
       }
-
-      const dadosSalvos = JSON.parse(localStorage.getItem('historico')) || [];
-      setHistorico(dadosSalvos);
-    };
-
-    fetchUserData();
-
-    const voltarPara = location.state?.voltarPara;
-    if (voltarPara) {
-      setView(voltarPara);
     }
-  }, [location.state]);
+
+    const dadosSalvos = JSON.parse(localStorage.getItem('historico')) || [];
+    setHistorico(dadosSalvos);
+  };
+
+  fetchUserData();
+
+  const voltarPara = location.state?.voltarPara;
+  if (voltarPara) {
+    setView(voltarPara);
+  }
+}, [location.state]); // Recarrega os dados quando o estado de navegação mudar
 
   const confirmarLogout = async () => {
     try {

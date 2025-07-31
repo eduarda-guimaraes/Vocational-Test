@@ -1,9 +1,8 @@
-// src/pages/Login.jsx
+// Login.jsx
 import React, { useState } from 'react';
-import { signInWithEmailAndPassword, signInWithPopup, signOut } from 'firebase/auth';
-import { auth, provider, db } from '../services/firebase';
+import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { auth, provider } from '../services/firebase';
 import { useNavigate, Link } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -19,7 +18,6 @@ export default function Login() {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, senha);
       const user = userCredential.user;
-
       await user.reload();
 
       if (user.emailVerified) {
@@ -29,30 +27,26 @@ export default function Login() {
       }
     } catch (err) {
       console.error('Erro no login:', err);
-      setErro('Email ou senha incorretos.');
+      setErro('Email ou senha incorretos ou conta não verificada.');
     }
   };
 
   const loginComGoogle = async () => {
-    setErro('');
     try {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
+      await user.reload();
 
-      const userDoc = await getDoc(doc(db, 'usuarios', user.uid));
-      if (!userDoc.exists()) {
-        setErro('Este e-mail ainda não possui uma conta. Crie uma conta antes de fazer login.');
-        await signOut(auth);
-        return;
+      if (user.emailVerified) {
+        navigate('/perfil');
+      } else {
+        navigate('/aguardando-verificacao');
       }
-
-      navigate('/perfil');
     } catch (error) {
-      console.error('Erro no login com Google:', error);
-      setErro('Não foi possível fazer login com o Google.');
+      console.error(error);
+      setErro('Erro ao fazer login com o Google.');
     }
   };
-
   return (
     <div className="container d-flex justify-content-center align-items-center vh-100">
       <div className="card p-4 shadow-sm rounded-4" style={{ maxWidth: '400px', width: '100%' }}>

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { auth, db, provider } from '../services/firebase';
 import {
   updateProfile,
   updatePassword,
@@ -8,8 +7,9 @@ import {
   EmailAuthProvider,
   deleteUser,
   reauthenticateWithPopup,
-  sendEmailVerification,
+  sendEmailVerification
 } from 'firebase/auth';
+import { auth, db, provider } from '../services/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -32,7 +32,7 @@ export default function EditarPerfil() {
   const [mostrarSenhaAtual, setMostrarSenhaAtual] = useState(false);
   const [mostrarSenhaExcluir, setMostrarSenhaExcluir] = useState(false);
   const [fotoPreview, setFotoPreview] = useState(user?.photoURL || '/iconevazio.png');
-  const [novaFoto, setNovaFoto] = useState(null);
+  const [novaFotoFile, setNovaFotoFile] = useState(null);
 
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
   const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
@@ -41,114 +41,96 @@ export default function EditarPerfil() {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setFotoPreview(reader.result);
-        setNovaFoto(reader.result);
-      };
+      reader.onloadend = () => setFotoPreview(reader.result);
       reader.readAsDataURL(file);
+      setNovaFotoFile(file);
     }
   };
 
-  const uploadParaCloudinary = async (base64Image) => {
-    const base64SemPrefixo = base64Image.replace(/^data:image\/\w+;base64,/, '');
+  const uploadParaCloudinary = async (file) => {
     const formData = new FormData();
-    formData.append('file', `data:image/jpeg;base64,${base64SemPrefixo}`);
+    formData.append('file', file);
     formData.append('upload_preset', uploadPreset);
 
     const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
       method: 'POST',
-      body: formData
+      body: formData,
     });
 
+    if (!response.ok) throw new Error('Erro ao enviar imagem para o Cloudinary');
+
     const data = await response.json();
-
-    if (!response.ok) {
-      console.error('Erro no upload Cloudinary:', data);
-      throw new Error('Erro ao enviar imagem para o Cloudinary');
-    }
-
     return data.secure_url;
   };
 
-  const handleSalvar = async (e) => {
-    e.preventDefault();
-    setErro('');
-    setMensagem('');
-
-    if (!nome.trim()) return setErro('O nome não pode estar em branco.');
-
+const handleSalvar = async () => {
+  setMensagem('');
+  setErro('');
+  try {
+    const user = auth.currentUser;
     const isSenha = user.providerData[0]?.providerId === 'password';
-    const nomeAlterado = nome !== user.displayName;
+
+    // Verifica se e-mail será alterado
     const emailAlterado = email !== user.email;
-    const senhaAlterada = novaSenha.length >= 6;
-    const fotoAlterada = novaFoto !== null;
 
-    let novaFotoURL = null;
-
-    try {
-      if ((isSenha && (senhaAlterada || emailAlterado)) || nomeAlterado || fotoAlterada) {
-        if (isSenha && (senhaAlterada || emailAlterado)) {
-          if (!senhaAtual || senhaAtual.length < 6) {
-            setErro('Digite sua senha atual para confirmar as alterações.');
-            return;
-          }
-          const credential = EmailAuthProvider.credential(user.email, senhaAtual);
-          await reauthenticateWithCredential(user, credential);
-          console.log('Reautenticado com senha');
-        } else {
-          await reauthenticateWithPopup(user, provider);
-          console.log('Reautenticado com popup');
-        }
-      }
-
+    // Reautenticando o usuário caso o e-mail ou senha tenha sido alterado
     if (emailAlterado && isSenha) {
-      await updateEmail(user, email); // Isso já dispara o e-mail automaticamente
-      setMensagem('Enviamos um e-mail de confirmação para seu endereço anterior. A alteração só será concluída após a confirmação.');
+      await user.reload(); // Garante dados atualizados
+      if (!user.emailVerified) {
+        setMensagem('Verifique seu e-mail atual antes de alterá-lo.');
+        return;
+      }
+
+      const cred = EmailAuthProvider.credential(user.email, senhaAtual);
+      await reauthenticateWithCredential(user, cred);
     }
 
-
-      if (senhaAlterada && isSenha) {
-        await updatePassword(user, novaSenha);
-      }
-
-      if (fotoAlterada) {
-        novaFotoURL = await uploadParaCloudinary(novaFoto);
-        await updateProfile(user, {
-          photoURL: novaFotoURL,
-        });
-      }
-
-      if (nomeAlterado) {
-        await updateProfile(user, { displayName: nome });
-      }
-
-      const docRef = doc(db, 'usuarios', user.uid);
-      await updateDoc(docRef, {
-        nome,
-        email,
-        ...(novaFotoURL && { fotoPerfil: novaFotoURL }),
-      });
-
-      await user.reload();
-      setEmail(user.email);
-
-      if (!emailAlterado) {
-        setMensagem('Dados atualizados com sucesso!');
-      }
-
-      setTimeout(() => navigate('/perfil', { state: { voltarPara } }), 1500);
-    } catch (error) {
-      console.error('Erro completo:', error);
-      setErro('Erro ao atualizar dados: ' + error.message);
+    // Verifica se a foto foi alterada e faz upload
+    let fotoURL = user.photoURL;
+    if (novaFotoFile) {
+      fotoURL = await uploadParaCloudinary(novaFotoFile);
     }
-  };
+
+    // Atualizando o nome e foto de perfil
+    await updateProfile(user, {
+      displayName: nome,
+      photoURL: fotoURL,
+    });
+
+    // Atualizando dados no Firestore
+    const docRef = doc(db, 'usuarios', user.uid);
+    await updateDoc(docRef, {
+      nome,
+      email,
+      fotoPerfil: fotoURL,
+    });
+
+    // Atualizando e-mail
+    if (emailAlterado) {
+      await updateEmail(user, email);
+      await sendEmailVerification(user); // Envia o e-mail de verificação para o novo e-mail
+      setMensagem('Enviamos um e-mail de confirmação para seu novo endereço de e-mail.');
+    }
+
+    // Atualizando senha
+    if (novaSenha.length >= 6 && isSenha) {
+      await updatePassword(user, novaSenha);
+    }
+
+    setMensagem('Alterações salvas com sucesso!');
+  } catch (error) {
+    console.error(error);
+    setErro('Erro ao atualizar: ' + error.message);
+  }
+};
 
   const confirmarExclusao = async () => {
     setErroExcluir('');
     try {
-      if (user.providerData[0]?.providerId === 'password') {
-        const credential = EmailAuthProvider.credential(user.email, senhaExcluir);
-        await reauthenticateWithCredential(user, credential);
+      const isSenha = user.providerData[0]?.providerId === 'password';
+      if (isSenha) {
+        const cred = EmailAuthProvider.credential(user.email, senhaExcluir);
+        await reauthenticateWithCredential(user, cred);
       } else {
         await reauthenticateWithPopup(user, provider);
       }
@@ -156,8 +138,7 @@ export default function EditarPerfil() {
       await auth.signOut();
       navigate('/');
     } catch (error) {
-      console.error(error);
-      setErroExcluir('Erro ao excluir conta. Verifique a senha ou tente novamente.');
+      setErroExcluir('Erro ao excluir conta: ' + error.message);
     }
   };
 
@@ -234,4 +215,4 @@ export default function EditarPerfil() {
       </div>
     </div>
   );
-}
+}  
