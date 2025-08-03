@@ -25,82 +25,55 @@ function Chat() {
   const [userId, setUserId] = useState(null);
   const [userPhoto, setUserPhoto] = useState('/iconevazio.png');
   const [loading, setLoading] = useState(false);
+  const [respostasAnteriores, setRespostasAnteriores] = useState([]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        console.warn('Usuário não autenticado.');
-        return;
-      }
+      if (!user) return;
 
       setUserId(user.uid);
       setUserPhoto(user.photoURL || '/iconevazio.png');
 
-      try {
-        const chatRef = await addDoc(collection(db, 'chats'), {
-          usuario_id: user.uid,
-          criado_em: serverTimestamp(),
-        });
+      if (!chatId) { // 🔒 Evita duplicação de chat se já existir
+        try {
+          const chatRef = await addDoc(collection(db, 'chats'), {
+            usuario_id: user.uid,
+            criado_em: serverTimestamp(),
+          });
 
-        setChatId(chatRef.id);
-      } catch (error) {
-        console.error('Erro ao criar chat no Firestore:', error);
-        alert('Erro ao iniciar o chat. Tente novamente.');
+          setChatId(chatRef.id);
+        } catch (error) {
+          console.error('Erro ao criar chat no Firestore:', error);
+          alert('Erro ao iniciar o chat. Tente novamente.');
+        }
       }
     });
 
-    return () => unsubscribe();
-  }, []);
+  return () => unsubscribe();
+}, [chatId]);
+
 
   const enviarParaIA = async (mensagem) => {
     const backendUrl = import.meta.env.VITE_API_URL;
-    console.log('VITE_API_URL:', backendUrl);
 
     try {
       const response = await fetch(`${backendUrl}/api/chat-vocacional`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mensagem })
+        body: JSON.stringify({
+          mensagem,
+          respostas_anteriores: respostasAnteriores,
+          chat_id: chatId
+        })
       });
 
-      const data = await response.json();
-      return data.resposta || 'Não consegui entender, pode reformular?';
+      return await response.json();
     } catch (error) {
       console.error('Erro ao enviar para IA:', error);
-      return 'Houve um erro ao se conectar com a IA.';
-    }
-  };
-
-  const salvarMensagem = async (autor, conteudo) => {
-    if (!chatId || !userId) return;
-
-    try {
-      const mensagensRef = collection(db, 'chats', chatId, 'mensagens');
-      await addDoc(mensagensRef, {
-        autor,
-        conteudo,
-        criada_em: serverTimestamp(),
-      });
-    } catch (error) {
-      console.error('Erro ao salvar mensagem:', error);
-      alert('Erro ao salvar mensagem. Verifique sua conexão.');
-    }
-  };
-
-  const salvarResultado = async (texto) => {
-    if (!chatId || !userId) return;
-
-    try {
-      const respostasRef = collection(db, 'chats', chatId, 'respostas');
-      await addDoc(respostasRef, {
-        uid: userId,
-        resultado: texto,
-        criadoEm: serverTimestamp(),
-      });
-      console.log('Resumo salvo na subcoleção respostas:', texto);
-    } catch (error) {
-      console.error('Erro ao salvar resultado:', error);
-      alert('Erro ao salvar resultado. Verifique sua conexão.');
+      return {
+        resposta: 'Houve um erro ao se conectar com a IA.',
+        pergunta_aleatoria: null
+      };
     }
   };
 
@@ -108,37 +81,29 @@ function Chat() {
     if (!input.trim() || !chatId) return;
 
     const userMessage = { sender: 'user', text: input };
-    setMessages((prev) => {
-      const newMessages = [...prev, userMessage];
-      setTimeout(() => {
-        const chatContainer = document.getElementById('chatContainer');
-        if (chatContainer) {
-          chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
-      }, 100);
-      return newMessages;
-    });
-    await salvarMensagem('user', input);
-
+    setMessages((prev) => [...prev, userMessage]);
+    setRespostasAnteriores((prev) => [...prev, input]);
+    setInput('');
     setLoading(true);
-    const respostaIA = await enviarParaIA(input);
+
+    const data = await enviarParaIA(input);
     setLoading(false);
 
+    const respostaIA = data.resposta || 'Não consegui entender, pode reformular?';
     const botMessage = { sender: 'bot', text: respostaIA };
-    setMessages((prev) => {
-      const newMessages = [...prev, botMessage];
-      setTimeout(() => {
-        const chatContainer = document.getElementById('chatContainer');
-        if (chatContainer) {
-          chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
-      }, 100);
-      return newMessages;
-    });
-    await salvarMensagem('bot', respostaIA);
-    await salvarResultado(respostaIA);
+    setMessages((prev) => [...prev, botMessage]);
 
-    setInput('');
+    if (data.pergunta_aleatoria === null) {
+      console.log('Teste encerrado. Resultado salvo pelo backend.');
+    }
+
+    // Scroll automático
+    setTimeout(() => {
+      const chatContainer = document.getElementById('chatContainer');
+      if (chatContainer) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+    }, 100);
   };
 
   const handleKeyPress = (e) => {
@@ -151,7 +116,6 @@ function Chat() {
 
       <main style={{ flex: 1, minHeight: 'calc(100vh - 90px)' }}>
         <div className="container py-4" style={{ paddingTop: '30px' }}>
-          {/* MENSAGEM EXPLICATIVA */}
           <div className="alert text-center rounded-4 shadow-sm p-4" style={{ backgroundColor: '#e3f2fd', color: '#0d47a1' }}>
             <h5 className="mb-2 fw-bold">Como funciona o teste vocacional?</h5>
             <p className="mb-0">
@@ -161,7 +125,6 @@ function Chat() {
             </p>
           </div>
 
-          {/* ÁREA DO CHAT */}
           <div
             className="chat-box p-3 mt-4"
             style={{
@@ -220,7 +183,6 @@ function Chat() {
             ))}
           </div>
 
-          {/* INPUT DE MENSAGEM */}
           <div className="d-flex mt-4">
             <input
               type="text"
