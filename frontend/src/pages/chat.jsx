@@ -29,29 +29,29 @@ function Chat() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        console.warn('Usuário não autenticado.');
-        return;
-      }
+      if (!user) return;
 
       setUserId(user.uid);
       setUserPhoto(user.photoURL || '/iconevazio.png');
 
-      try {
-        const chatRef = await addDoc(collection(db, 'chats'), {
-          usuario_id: user.uid,
-          criado_em: serverTimestamp(),
-        });
+      if (!chatId) { // 🔒 Evita duplicação de chat se já existir
+        try {
+          const chatRef = await addDoc(collection(db, 'chats'), {
+            usuario_id: user.uid,
+            criado_em: serverTimestamp(),
+          });
 
-        setChatId(chatRef.id);
-      } catch (error) {
-        console.error('Erro ao criar chat no Firestore:', error);
-        alert('Erro ao iniciar o chat. Tente novamente.');
+          setChatId(chatRef.id);
+        } catch (error) {
+          console.error('Erro ao criar chat no Firestore:', error);
+          alert('Erro ao iniciar o chat. Tente novamente.');
+        }
       }
     });
 
-    return () => unsubscribe();
-  }, []);
+  return () => unsubscribe();
+}, [chatId]);
+
 
   const enviarParaIA = async (mensagem) => {
     const backendUrl = import.meta.env.VITE_API_URL;
