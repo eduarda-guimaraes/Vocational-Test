@@ -9,38 +9,19 @@ from flask import Blueprint, request, jsonify
 # Blueprint
 main = Blueprint('main', __name__)
 
-# Etapas e perguntas
-etapas = {
-    "autoconhecimento": [
-        "Quais são as atividades que você mais gosta de fazer no dia a dia?",
-        "Quais matérias da escola você mais gosta/gostava?",
-        "Em que tarefas você se destaca?",
-        "Você prefere trabalhar com pessoas, ideias ou máquinas?",
-        "Você gosta de resolver problemas, criar ou seguir instruções?",
-        "Prefere ambientes tranquilos ou agitados?",
-        "O que você faz no tempo livre que te faz perder a noção do tempo?"
-    ],
-    "valores": [
-        "O que é mais importante para você em uma carreira? (ex: estabilidade, propósito, status, ajudar, dinheiro, etc.)",
-        "Onde você gostaria de trabalhar? Escritório? Ar livre? Público?",
-        "Prefere rotina fixa ou flexível?",
-        "Como você define sucesso pessoal/profissional?",
-        "Gosta de trabalhar sozinho ou em equipe?"
-    ],
-    "objetivos": [
-        "Onde você se imagina em 5 a 10 anos?",
-        "Pretende cursar faculdade, técnico ou empreender?",
-        "Aceita cursos longos ou prefere formações práticas?",
-        "Gosta de liderar ou prefere áreas técnicas?",
-        "Quanto espera ganhar em sua profissão ideal?"
-    ],
-    "limitações": [
-        "Alguma limitação financeira, geográfica ou de tempo?",
-        "Tem apoio da família ou depende de si mesmo?",
-        "Trabalha ou pretende trabalhar durante os estudos?",
-        "Já considerou ou descartou alguma carreira? Por quê?"
-    ]
-}
+# Conjunto de perguntas sobre carreiras e interesses profissionais
+perguntas_aleatorias = [
+    "Você prefere trabalhar com tecnologia ou com pessoas?",
+    "Você se vê em um trabalho criativo ou mais técnico?",
+    "Você gosta de resolver problemas ou prefere realizar tarefas repetitivas?",
+    "Você se imagina em um cargo de liderança ou prefere executar tarefas específicas?",
+    "Você gostaria de trabalhar em um ambiente dinâmico ou em um local mais tranquilo?",
+    "Você prefere trabalhar sozinho ou em equipe?",
+    "Você gostaria de trabalhar em uma área mais voltada para vendas ou mais técnica?"
+]
+
+def gerar_pergunta_aleatoria():
+    return random.choice(perguntas_aleatorias)
 
 # Armazenamento temporário
 chats_contagem_perguntas = {}
@@ -70,47 +51,32 @@ def salvar_resposta_firebase(chat_id, pergunta, resposta):
     salvar_mensagem(chat_id, pergunta, tipo="pergunta")
     salvar_mensagem(chat_id, resposta, tipo="resposta")
 
-def gerar_areas_respostas(respostas):
-    areas = []
-    text = " ".join(respostas).lower()
-    if "trabalho em grupo" in text or "ajudar pessoas" in text:
-        areas += ["Psicologia", "Educação", "Serviço Social"]
-    if "arte" in text or "criatividade" in text:
-        areas += ["Design Gráfico", "Artes Visuais", "Publicidade"]
-    if "organização" in text or "estratégia" in text:
-        areas += ["Administração de Empresas", "Gestão de Projetos", "Marketing"]
-    if "tecnologia" in text or "programação" in text:
-        areas += ["Engenharia", "Ciência da Computação", "TI"]
-    if "finanças" in text or "números" in text:
-        areas += ["Economia", "Administração", "Contabilidade"]
-    return areas
-
 def gerar_prompt_interativo(pergunta, respostas_anteriores, chat_id):
-    etapa_atual = "autoconhecimento"
-    total_respondidas = len(respostas_anteriores)
-    if total_respondidas >= len(etapas["autoconhecimento"]):
-        etapa_atual = "valores"
-    if total_respondidas >= len(etapas["autoconhecimento"]) + len(etapas["valores"]):
-        etapa_atual = "objetivos"
-    if total_respondidas >= len(etapas["autoconhecimento"]) + len(etapas["valores"]) + len(etapas["objetivos"]):
-        etapa_atual = "limitações"
-
-    perguntas_restantes = etapas[etapa_atual][total_respondidas % len(etapas[etapa_atual]):]
-    if perguntas_restantes:
-        pergunta_aleatoria = perguntas_restantes[0]
-    else:
-        pergunta_aleatoria = "Você já respondeu todas as perguntas. Podemos sugerir algumas áreas de interesse."
-
     prompt_base = (
-        "Você é um assistente vocacional interativo e simpático. "
-        "A cada nova mensagem, responda com no máximo 3 frases curtas e diretas. "
-        "Evite repetir o que o usuário já disse ou o que você mesmo já comentou. "
-        "Fale como se estivesse conversando com um adolescente no WhatsApp."
+        "Você é um assistente vocacional simpático. "
+        "Faça perguntas curtas e objetivas sobre os interesses pessoais do usuário. "
+        "Evite qualquer tipo de explicação ou justificativa. "
+        "As perguntas devem ser diretas, sem introduções ou explicações. "
+        "Ao responder, faça respostas concisas e completas, sem cortar frases no meio."
     )
 
+    contexto = f"{prompt_base}\n\nMensagem mais recente do usuário: {pergunta}"
+    return contexto, gerar_pergunta_aleatoria()
 
-    contexto = f"{prompt_base}\n\nHistórico de respostas do usuário:\n" + "\n".join(respostas_anteriores) + f"\n\nMensagem mais recente do usuário: {pergunta}"
-    return contexto, pergunta_aleatoria
+def revisar_resposta(resposta):
+    # Função para revisar a resposta antes de enviá-la
+    if len(resposta.split()) < 5:
+        return "Desculpe, não consegui entender sua resposta completamente. Pode reformular?"
+    
+    # Garantir que a resposta termine com um ponto final
+    if not resposta.endswith('.'):
+        resposta += '.'
+
+    # Garantir que a resposta seja coerente e objetiva
+    if 'não sei' in resposta.lower() or 'indeciso' in resposta.lower():
+        resposta = "Que tipo de atividades você gosta de realizar no seu tempo livre?"
+    
+    return resposta
 
 @main.route('/api/chat-vocacional', methods=['POST'])
 def chat_vocacional():
@@ -120,67 +86,27 @@ def chat_vocacional():
     chat_id = data.get('chat_id', gerar_chat_id())
 
     try:
-        if "encerrar teste" in pergunta.lower():
-            resumo_prompt = (
-                "Você é um orientador vocacional. Gere um resumo final com base nas respostas anteriores do usuário. "
-                "Explique brevemente o perfil percebido e sugira áreas coerentes.\n\n"
-                "Respostas anteriores:\n" + "\n".join(respostas_anteriores)
-            )
-            resumo = openai.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[{"role": "system", "content": "Você é um orientador vocacional."},
-                          {"role": "user", "content": resumo_prompt}],
-                max_tokens=80,
-                temperature=0.8
-            ).choices[0].message.content
-
-            salvar_mensagem(chat_id, pergunta, tipo="pergunta")
-            salvar_mensagem(chat_id, resumo, tipo="resumo_final")
-
-            return jsonify({
-                "resposta": resumo,
-                "pergunta_aleatoria": None
-            })
-
         prompt_interativo, pergunta_aleatoria = gerar_prompt_interativo(
             pergunta, respostas_anteriores, chat_id
         )
 
         mensagens_completas = [{"role": "system", "content": "Você é um assistente vocacional..."}]
-        mensagens_completas += [{"role": "user", "content": r} for r in respostas_anteriores]
         mensagens_completas.append({"role": "user", "content": pergunta})
 
         response = openai.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=mensagens_completas,
-            max_tokens=180,
+            max_tokens=100,  # Permitir um limite maior de tokens para perguntas mais completas
             temperature=0.7
         )
 
-        conteudo = response.choices[0].message.content
+        conteudo = response.choices[0].message.content.strip()
+
+        # Revisar a resposta antes de enviá-la
+        conteudo = revisar_resposta(conteudo)
 
         chats_contagem_perguntas[chat_id] = chats_contagem_perguntas.get(chat_id, 0) + 1
         salvar_resposta_firebase(chat_id, pergunta, conteudo)
-
-        if chats_contagem_perguntas[chat_id] >= 10:
-            resumo_prompt = (
-                "Você é um orientador vocacional. Gere um resumo final com base nas respostas anteriores.\n\n"
-                "Respostas anteriores:\n" + "\n".join(respostas_anteriores)
-            )
-            resumo = openai.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[{"role": "system", "content": "Você é um orientador vocacional."},
-                          {"role": "user", "content": resumo_prompt}],
-                max_tokens=200,
-                temperature=0.8
-            ).choices[0].message.content
-
-            salvar_mensagem(chat_id, resumo, tipo="resumo_final")
-
-            return jsonify({
-                "resposta": resumo,
-                "pergunta_aleatoria": None
-            })
 
         return jsonify({
             "resposta": conteudo,
