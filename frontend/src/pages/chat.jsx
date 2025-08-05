@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Header from '../components/header';
 import '../styles/global.css';
 import '../styles/form.css';
@@ -26,15 +26,22 @@ function Chat() {
   const [userPhoto, setUserPhoto] = useState('/iconevazio.png');
   const [loading, setLoading] = useState(false);
   const [respostasAnteriores, setRespostasAnteriores] = useState([]);
+  const [isUserLoggedIn, setIsUserLoggedIn] = useState(true); // Verificação de conta
+
+  const textareaRef = useRef(null);
+  const [textareaHeight, setTextareaHeight] = useState(50); // Define altura inicial do textarea
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) return;
+      if (!user) {
+        setIsUserLoggedIn(false); // Usuário não está logado
+        return;
+      }
 
       setUserId(user.uid);
       setUserPhoto(user.photoURL || '/iconevazio.png');
 
-      if (!chatId) { // 🔒 Evita duplicação de chat se já existir
+      if (!chatId) {
         try {
           const chatRef = await addDoc(collection(db, 'chats'), {
             usuario_id: user.uid,
@@ -47,11 +54,11 @@ function Chat() {
           alert('Erro ao iniciar o chat. Tente novamente.');
         }
       }
+      setIsUserLoggedIn(true); 
     });
 
-  return () => unsubscribe();
-}, [chatId]);
-
+    return () => unsubscribe();
+  }, [chatId]);
 
   const enviarParaIA = async (mensagem) => {
     const backendUrl = import.meta.env.VITE_API_URL;
@@ -78,7 +85,7 @@ function Chat() {
   };
 
   const handleSend = async () => {
-    if (!input.trim() || !chatId) return;
+    if (!input.trim() || !chatId || !isUserLoggedIn) return;
 
     const userMessage = { sender: 'user', text: input };
     setMessages((prev) => [...prev, userMessage]);
@@ -107,7 +114,16 @@ function Chat() {
   };
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter') handleSend();
+    if (e.key === 'Enter' && !e.shiftKey) {
+      handleSend();
+    }
+  };
+
+  const handleInput = () => {
+    // Ajusta a altura do textarea uma única vez
+    if (textareaRef.current && textareaHeight === 50) { 
+      setTextareaHeight(textareaRef.current.scrollHeight);
+    }
   };
 
   return (
@@ -116,6 +132,12 @@ function Chat() {
 
       <main style={{ flex: 1, minHeight: 'calc(100vh - 90px)' }}>
         <div className="container py-4" style={{ paddingTop: '30px' }}>
+          {isUserLoggedIn ? null : (
+            <div className="alert alert-warning text-center">
+              <strong>Atenção!</strong> Você precisa estar logado para utilizar o chat.
+            </div>
+          )}
+
           <div className="alert text-center rounded-4 shadow-sm p-4" style={{ backgroundColor: '#e3f2fd', color: '#0d47a1' }}>
             <h5 className="mb-2 fw-bold">Como funciona o teste vocacional?</h5>
             <p className="mb-0">
@@ -134,7 +156,8 @@ function Chat() {
               overflowY: 'auto',
               scrollBehavior: 'smooth',
               display: 'flex',
-              flexDirection: 'column'
+              flexDirection: 'column',
+              paddingRight: '1000px',
             }}
             id="chatContainer"
           >
@@ -184,24 +207,31 @@ function Chat() {
           </div>
 
           <div className="d-flex mt-4">
-            <input
-              type="text"
-              className="form-control rounded-pill px-4"
+            <textarea
+              ref={textareaRef}
+              className="form-control rounded-pill px-4 text-start"
               placeholder="Digite algo..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyPress}
-              disabled={!chatId || loading}
+              onInput={handleInput} 
+              disabled={!chatId || loading || !isUserLoggedIn}
+              rows="1" 
               style={{
-                height: '50px',
                 border: '1px solid #ccc',
-                marginRight: '10px'
+                marginRight: '10px',
+                resize: 'none', 
+                minHeight: '50px',  
+                height: `${textareaHeight}px`,
+                paddingTop: '10px',
+                paddingBottom: '10px',
+                paddingLeft: '12px', 
               }}
             />
             <button
               className="btn btn-primary rounded-pill px-4"
               onClick={handleSend}
-              disabled={!chatId || loading}
+              disabled={!chatId || loading || !isUserLoggedIn}
             >
               {loading ? 'Enviando...' : 'Enviar'}
             </button>
