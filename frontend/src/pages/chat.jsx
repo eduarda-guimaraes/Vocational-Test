@@ -27,6 +27,7 @@ function Chat() {
   const [loading, setLoading] = useState(false);
   const [respostasAnteriores, setRespostasAnteriores] = useState([]);
   const [isUserLoggedIn, setIsUserLoggedIn] = useState(true); // Verificação de conta
+  const [isTestEnded, setIsTestEnded] = useState(false); // Controle de encerramento do teste
 
   const textareaRef = useRef(null);
   const [textareaHeight, setTextareaHeight] = useState(50); // Define altura inicial do textarea
@@ -54,7 +55,7 @@ function Chat() {
           alert('Erro ao iniciar o chat. Tente novamente.');
         }
       }
-      setIsUserLoggedIn(true); 
+      setIsUserLoggedIn(true);
     });
 
     return () => unsubscribe();
@@ -74,7 +75,13 @@ function Chat() {
         })
       });
 
-      return await response.json();
+      const data = await response.json();
+
+      if (mensagem.toLowerCase() === 'encerrar teste') {
+        setIsTestEnded(true); // Finaliza o teste quando o comando for dado
+      }
+
+      return data;
     } catch (error) {
       console.error('Erro ao enviar para IA:', error);
       return {
@@ -85,7 +92,7 @@ function Chat() {
   };
 
   const handleSend = async () => {
-    if (!input.trim() || !chatId || !isUserLoggedIn) return;
+    if (!input.trim() || !chatId || !isUserLoggedIn || isTestEnded) return;
 
     const userMessage = { sender: 'user', text: input };
     setMessages((prev) => [...prev, userMessage]);
@@ -206,6 +213,12 @@ function Chat() {
             ))}
           </div>
 
+          {isTestEnded && (
+            <div className="alert alert-success text-center mt-3">
+              <strong>Teste encerrado!</strong> Obrigado por participar. Você pode visualizar os resultados agora.
+            </div>
+          )}
+
           <div className="d-flex mt-4">
             <textarea
               ref={textareaRef}
@@ -215,7 +228,7 @@ function Chat() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyPress}
               onInput={handleInput} 
-              disabled={!chatId || loading || !isUserLoggedIn}
+              disabled={!chatId || loading || !isUserLoggedIn || isTestEnded} // Desabilita a digitação após o teste ser encerrado
               rows="1" 
               style={{
                 border: '1px solid #ccc',
@@ -231,7 +244,7 @@ function Chat() {
             <button
               className="btn btn-primary rounded-pill px-4"
               onClick={handleSend}
-              disabled={!chatId || loading || !isUserLoggedIn}
+              disabled={!chatId || loading || !isUserLoggedIn || isTestEnded}
             >
               {loading ? 'Enviando...' : 'Enviar'}
             </button>
