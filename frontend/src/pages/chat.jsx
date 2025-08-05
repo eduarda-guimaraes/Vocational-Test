@@ -54,7 +54,7 @@ function Chat() {
           alert('Erro ao iniciar o chat. Tente novamente.');
         }
       }
-      setIsUserLoggedIn(true); // Usuário está logado
+      setIsUserLoggedIn(true); 
     });
 
     return () => unsubscribe();
@@ -121,7 +121,7 @@ function Chat() {
 
   const handleInput = () => {
     // Ajusta a altura do textarea uma única vez
-    if (textareaRef.current && textareaHeight === 50) { // Verifica se já ajustou
+    if (textareaRef.current && textareaHeight === 50) { 
       setTextareaHeight(textareaRef.current.scrollHeight);
     }
   };
@@ -156,7 +156,8 @@ function Chat() {
               overflowY: 'auto',
               scrollBehavior: 'smooth',
               display: 'flex',
-              flexDirection: 'column'
+              flexDirection: 'column',
+              paddingRight: '1000px',
             }}
             id="chatContainer"
           >
@@ -213,18 +214,18 @@ function Chat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyPress}
-              onInput={handleInput} // Lógica para aumentar uma vez
+              onInput={handleInput} 
               disabled={!chatId || loading || !isUserLoggedIn}
-              rows="1" // Inicialmente com uma linha
+              rows="1" 
               style={{
                 border: '1px solid #ccc',
                 marginRight: '10px',
-                resize: 'none', // Impede o redimensionamento
-                minHeight: '50px',  // Altura mínima
-                height: `${textareaHeight}px`, // Ajusta altura com base no conteúdo
+                resize: 'none', 
+                minHeight: '50px',  
+                height: `${textareaHeight}px`,
                 paddingTop: '10px',
                 paddingBottom: '10px',
-                paddingLeft: '12px', // Barra de rolagem mais para dentro
+                paddingLeft: '12px', 
               }}
             />
             <button
