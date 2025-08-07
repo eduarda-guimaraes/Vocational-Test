@@ -10,7 +10,6 @@ import AguardandoVerificacao from './pages/aguardandoVerificacao';
 import DefinirSenha from './pages/DefinirSenha';       
 import EditarPerfil from './pages/EditarPerfil';       
 import Historico from './pages/Historico';
-
 import ProtectedRoute from './components/ProtectedRoute';
 import Header from './components/header';
 import Footer from './components/footer';
@@ -26,7 +25,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/cadastro" element={<Cadastro />} />
           <Route path="/aguardando-verificacao" element={<AguardandoVerificacao />} />
-          <Route path="/definir-senha" element={<DefinirSenha />} />       
+          <Route path="/definir-senha" element={<DefinirSenha />} />     
           <Route path="/historico" element={<Historico />} />
           <Route
             path="/perfil"

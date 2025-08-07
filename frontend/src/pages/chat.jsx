@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Header from '../components/header';
 import '../styles/global.css';
 import '../styles/form.css';
@@ -25,124 +25,105 @@ function Chat() {
   const [userId, setUserId] = useState(null);
   const [userPhoto, setUserPhoto] = useState('/iconevazio.png');
   const [loading, setLoading] = useState(false);
+  const [respostasAnteriores, setRespostasAnteriores] = useState([]);
+  const [isUserLoggedIn, setIsUserLoggedIn] = useState(true); // Verificação de conta
+
+  const textareaRef = useRef(null);
+  const [textareaHeight, setTextareaHeight] = useState(50); // Define altura inicial do textarea
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        console.warn('Usuário não autenticado.');
+        setIsUserLoggedIn(false); // Usuário não está logado
         return;
       }
 
       setUserId(user.uid);
       setUserPhoto(user.photoURL || '/iconevazio.png');
 
-      try {
-        const chatRef = await addDoc(collection(db, 'chats'), {
-          usuario_id: user.uid,
-          criado_em: serverTimestamp(),
-        });
+      if (!chatId) {
+        try {
+          const chatRef = await addDoc(collection(db, 'chats'), {
+            usuario_id: user.uid,
+            criado_em: serverTimestamp(),
+          });
 
-        setChatId(chatRef.id);
-      } catch (error) {
-        console.error('Erro ao criar chat no Firestore:', error);
-        alert('Erro ao iniciar o chat. Tente novamente.');
+          setChatId(chatRef.id);
+        } catch (error) {
+          console.error('Erro ao criar chat no Firestore:', error);
+          alert('Erro ao iniciar o chat. Tente novamente.');
+        }
       }
+      setIsUserLoggedIn(true); 
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [chatId]);
 
   const enviarParaIA = async (mensagem) => {
     const backendUrl = import.meta.env.VITE_API_URL;
-    console.log('VITE_API_URL:', backendUrl);
 
     try {
       const response = await fetch(`${backendUrl}/api/chat-vocacional`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mensagem })
+        body: JSON.stringify({
+          mensagem,
+          respostas_anteriores: respostasAnteriores,
+          chat_id: chatId
+        })
       });
 
-      const data = await response.json();
-      return data.resposta || 'Não consegui entender, pode reformular?';
+      return await response.json();
     } catch (error) {
       console.error('Erro ao enviar para IA:', error);
-      return 'Houve um erro ao se conectar com a IA.';
-    }
-  };
-
-  const salvarMensagem = async (autor, conteudo) => {
-    if (!chatId || !userId) return;
-
-    try {
-      const mensagensRef = collection(db, 'chats', chatId, 'mensagens');
-      await addDoc(mensagensRef, {
-        autor,
-        conteudo,
-        criada_em: serverTimestamp(),
-      });
-    } catch (error) {
-      console.error('Erro ao salvar mensagem:', error);
-      alert('Erro ao salvar mensagem. Verifique sua conexão.');
-    }
-  };
-
-  const salvarResultado = async (texto) => {
-    if (!chatId || !userId) return;
-
-    try {
-      const respostasRef = collection(db, 'chats', chatId, 'respostas');
-      await addDoc(respostasRef, {
-        uid: userId,
-        resultado: texto,
-        criadoEm: serverTimestamp(),
-      });
-      console.log('Resumo salvo na subcoleção respostas:', texto);
-    } catch (error) {
-      console.error('Erro ao salvar resultado:', error);
-      alert('Erro ao salvar resultado. Verifique sua conexão.');
+      return {
+        resposta: 'Houve um erro ao se conectar com a IA.',
+        pergunta_aleatoria: null
+      };
     }
   };
 
   const handleSend = async () => {
-    if (!input.trim() || !chatId) return;
+    if (!input.trim() || !chatId || !isUserLoggedIn) return;
 
     const userMessage = { sender: 'user', text: input };
-    setMessages((prev) => {
-      const newMessages = [...prev, userMessage];
-      setTimeout(() => {
-        const chatContainer = document.getElementById('chatContainer');
-        if (chatContainer) {
-          chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
-      }, 100);
-      return newMessages;
-    });
-    await salvarMensagem('user', input);
-
+    setMessages((prev) => [...prev, userMessage]);
+    setRespostasAnteriores((prev) => [...prev, input]);
+    setInput('');
     setLoading(true);
-    const respostaIA = await enviarParaIA(input);
+
+    const data = await enviarParaIA(input);
     setLoading(false);
 
+    const respostaIA = data.resposta || 'Não consegui entender, pode reformular?';
     const botMessage = { sender: 'bot', text: respostaIA };
-    setMessages((prev) => {
-      const newMessages = [...prev, botMessage];
-      setTimeout(() => {
-        const chatContainer = document.getElementById('chatContainer');
-        if (chatContainer) {
-          chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
-      }, 100);
-      return newMessages;
-    });
-    await salvarMensagem('bot', respostaIA);
-    await salvarResultado(respostaIA);
+    setMessages((prev) => [...prev, botMessage]);
 
-    setInput('');
+    if (data.pergunta_aleatoria === null) {
+      console.log('Teste encerrado. Resultado salvo pelo backend.');
+    }
+
+    // Scroll automático
+    setTimeout(() => {
+      const chatContainer = document.getElementById('chatContainer');
+      if (chatContainer) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+    }, 100);
   };
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter') handleSend();
+    if (e.key === 'Enter' && !e.shiftKey) {
+      handleSend();
+    }
+  };
+
+  const handleInput = () => {
+    // Ajusta a altura do textarea uma única vez
+    if (textareaRef.current && textareaHeight === 50) { 
+      setTextareaHeight(textareaRef.current.scrollHeight);
+    }
   };
 
   return (
@@ -151,7 +132,12 @@ function Chat() {
 
       <main style={{ flex: 1, minHeight: 'calc(100vh - 90px)' }}>
         <div className="container py-4" style={{ paddingTop: '30px' }}>
-          {/* MENSAGEM EXPLICATIVA */}
+          {isUserLoggedIn ? null : (
+            <div className="alert alert-warning text-center">
+              <strong>Atenção!</strong> Você precisa estar logado para utilizar o chat.
+            </div>
+          )}
+
           <div className="alert text-center rounded-4 shadow-sm p-4" style={{ backgroundColor: '#e3f2fd', color: '#0d47a1' }}>
             <h5 className="mb-2 fw-bold">Como funciona o teste vocacional?</h5>
             <p className="mb-0">
@@ -161,7 +147,6 @@ function Chat() {
             </p>
           </div>
 
-          {/* ÁREA DO CHAT */}
           <div
             className="chat-box p-3 mt-4"
             style={{
@@ -171,7 +156,8 @@ function Chat() {
               overflowY: 'auto',
               scrollBehavior: 'smooth',
               display: 'flex',
-              flexDirection: 'column'
+              flexDirection: 'column',
+              paddingRight: '1000px',
             }}
             id="chatContainer"
           >
@@ -220,26 +206,32 @@ function Chat() {
             ))}
           </div>
 
-          {/* INPUT DE MENSAGEM */}
           <div className="d-flex mt-4">
-            <input
-              type="text"
-              className="form-control rounded-pill px-4"
+            <textarea
+              ref={textareaRef}
+              className="form-control rounded-pill px-4 text-start"
               placeholder="Digite algo..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyPress}
-              disabled={!chatId || loading}
+              onInput={handleInput} 
+              disabled={!chatId || loading || !isUserLoggedIn}
+              rows="1" 
               style={{
-                height: '50px',
                 border: '1px solid #ccc',
-                marginRight: '10px'
+                marginRight: '10px',
+                resize: 'none', 
+                minHeight: '50px',  
+                height: `${textareaHeight}px`,
+                paddingTop: '10px',
+                paddingBottom: '10px',
+                paddingLeft: '12px', 
               }}
             />
             <button
               className="btn btn-primary rounded-pill px-4"
               onClick={handleSend}
-              disabled={!chatId || loading}
+              disabled={!chatId || loading || !isUserLoggedIn}
             >
               {loading ? 'Enviando...' : 'Enviar'}
             </button>

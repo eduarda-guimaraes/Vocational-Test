@@ -66,6 +66,7 @@ export default function Cadastro() {
     if (!emailEhValido(email)) return setErro('Formato de email inválido.');
     if (senha !== confirmSenha) return setErro('As senhas não coincidem.');
     if (!senhaEhForte(senha)) return setErro('A senha deve ter no mínimo 6 caracteres, com letras, números e símbolo.');
+    if (!dataNascimento) return setErro('A data de nascimento é obrigatória.');
 
     try {
       // Criação do usuário no Firebase Auth
@@ -85,8 +86,8 @@ export default function Cadastro() {
       await setDoc(doc(db, "usuarios", usuario.uid), {
         nome,
         email,
-        dataNascimento,  // Adicionando a data de nascimento
-        fotoPerfil: fotoURL,  // Foto de perfil armazenada no Firestore
+        dataNascimento, 
+        fotoPerfil: fotoURL, 
         criadoEm: new Date(),
         emailVerificado: false, // Definido como false, pois o e-mail ainda não foi verificado
       });
@@ -166,7 +167,7 @@ export default function Cadastro() {
             </button>
           </div>
           <div className="mb-3">
-            <input type="date" className="form-control" placeholder="Data de Nascimento" value={dataNascimento} onChange={(e) => setDataNascimento(e.target.value)} />
+            <input type="date" className="form-control" placeholder="Data de Nascimento" value={dataNascimento} onChange={(e) => setDataNascimento(e.target.value)} required />
           </div>
           <div className="mb-3">
             <input type="file" className="form-control" accept="image/*" onChange={handleFotoChange} />

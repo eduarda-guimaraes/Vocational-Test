@@ -3,7 +3,7 @@ import Header from '../components/header';
 import '../styles/global.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { auth, db } from '../services/firebase';
-import { signOut } from 'firebase/auth';
+import { signOut, EmailAuthProvider, reauthenticateWithCredential, deleteUser } from 'firebase/auth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -18,6 +18,9 @@ function Perfil() {
   });
   const [historico, setHistorico] = useState([]);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);  // Modal para confirmação de exclusão
+  const [senhaExcluir, setSenhaExcluir] = useState('');
+  const [erroExcluir, setErroExcluir] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -66,6 +69,28 @@ function Perfil() {
       console.error('Erro ao sair:', error);
     }
   };
+
+  // Função para confirmar a exclusão da conta
+ const confirmarExclusao = async () => {
+  setErroExcluir('');
+  try {
+    const user = auth.currentUser;
+    const cred = EmailAuthProvider.credential(user.email, senhaExcluir);
+    await reauthenticateWithCredential(user, cred);  // Reautentica com a senha fornecida
+    await deleteUser(user);  // Exclui a conta
+    await signOut(auth);  // Desloga o usuário
+    navigate('/');  // Redireciona para a página inicial após a exclusão
+  } catch (error) {
+    console.error('Erro ao excluir conta:', error);
+
+    // Exibe a mensagem de erro com base no código de erro
+    if (error.code === 'auth/missing-password') {
+      setErroExcluir('A senha fornecida está incorreta ou ausente. Por favor, insira a senha corretamente e tente novamente.');
+    } else {
+      setErroExcluir('Erro ao excluir conta: ' + error.message + '. Tente novamente ou entre em contato com o suporte.');
+    }
+  }
+};
 
   const renderContent = () => {
     if (view === 'info') {
@@ -153,6 +178,9 @@ function Perfil() {
         <button className="btn-perfil w-100 mb-3" onClick={() => navigate('/historico')}>
           Histórico de Testes
         </button>
+        <button className="btn btn-danger w-100 mb-3" onClick={() => setShowDeleteModal(true)}>
+          Excluir Conta
+        </button>
         <button className="btn btn-danger w-100" onClick={() => setShowLogoutModal(true)}>
           Sair
         </button>
@@ -187,6 +215,40 @@ function Perfil() {
                 </button>
                 <button className="btn btn-danger" onClick={confirmarLogout}>
                   Confirmar saída
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteModal && (
+        <div className="modal d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Confirmar Exclusão</h5>
+                <button type="button" className="btn-close" onClick={() => setShowDeleteModal(false)}></button>
+              </div>
+              <div className="modal-body">
+                <p>Digite sua senha para confirmar a exclusão:</p>
+                <div className="position-relative">
+                  <input
+                    type="password"
+                    className="form-control"
+                    value={senhaExcluir}
+                    onChange={(e) => setSenhaExcluir(e.target.value)}
+                    placeholder="Senha"
+                  />
+                </div>
+                {erroExcluir && <p className="text-danger mt-2">{erroExcluir}</p>}
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setShowDeleteModal(false)}>
+                  Cancelar
+                </button>
+                <button className="btn btn-danger" onClick={confirmarExclusao}>
+                  Confirmar Exclusão
                 </button>
               </div>
             </div>

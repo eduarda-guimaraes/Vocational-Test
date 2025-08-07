@@ -1,13 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom'; // ✅ IMPORTANTE para navegação SPA
+import { Link } from 'react-router-dom';
 import { auth, db } from '../services/firebase';
 import {
   collection,
   getDocs,
   query,
-  where,
-  orderBy,
-  limit
+  where
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import Header from '../components/header';
@@ -20,8 +18,6 @@ function Historico() {
   const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
-    let unsubscribeAuth;
-
     const carregarHistorico = async (user) => {
       try {
         const chatsQuery = query(
@@ -33,27 +29,38 @@ function Historico() {
         const resultados = [];
 
         for (const chatDoc of chatsSnapshot.docs) {
-          const respostasRef = collection(db, 'chats', chatDoc.id, 'respostas');
-          const ultimaRespostaQuery = query(respostasRef, orderBy('criadoEm', 'desc'), limit(1));
-          const ultimaRespostaSnap = await getDocs(ultimaRespostaQuery);
+          const mensagensRef = collection(db, 'chats', chatDoc.id, 'mensagens');
+          const mensagensSnap = await getDocs(mensagensRef);
 
-          ultimaRespostaSnap.forEach((doc) => {
+          const resumosFinais = mensagensSnap.docs
+            .map((doc) => ({ id: doc.id, ...doc.data() }))
+            .filter((msg) => msg.tipo === 'resumo_final');
+
+          if (resumosFinais.length > 0) {
+            const resumoMaisRecente = resumosFinais.sort((a, b) => {
+              const ta = a.timestamp?.toDate?.() || 0;
+              const tb = b.timestamp?.toDate?.() || 0;
+              return tb - ta;
+            })[0];
+
             resultados.push({
-              id: doc.id,
-              ...doc.data()
+              id: resumoMaisRecente.id,
+              resultado: resumoMaisRecente.conteudo,
+              criadoEm: resumoMaisRecente.timestamp
             });
-          });
+          }
         }
 
+        console.log("Resumos encontrados no histórico:", resultados);
         setItens(resultados);
       } catch (error) {
-        console.error('Erro ao buscar respostas:', error);
+        console.error('Erro ao buscar histórico:', error);
       } finally {
         setCarregando(false);
       }
     };
 
-    unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
         carregarHistorico(user);
       } else {

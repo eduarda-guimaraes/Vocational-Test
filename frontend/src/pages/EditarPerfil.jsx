@@ -48,9 +48,13 @@ export default function EditarPerfil() {
       body: formData,
     });
 
-    if (!response.ok) throw new Error('Erro ao enviar imagem para o Cloudinary');
+    if (!response.ok) {
+      console.error('Erro ao enviar imagem para o Cloudinary', response);
+      throw new Error('Erro ao enviar imagem para o Cloudinary');
+    }
 
     const data = await response.json();
+    console.log('Imagem enviada para o Cloudinary:', data.secure_url); // Verifique se a URL está correta
     return data.secure_url; // Retorna a URL segura da imagem no Cloudinary
   };
 
@@ -59,7 +63,10 @@ export default function EditarPerfil() {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => setFotoPreview(reader.result);
+      reader.onloadend = () => {
+        setFotoPreview(reader.result);
+        console.log('Foto selecionada:', reader.result); // Verifique se o preview da imagem está funcionando
+      };
       reader.readAsDataURL(file);
       setNovaFotoFile(file); // Armazena o arquivo selecionado
     }
@@ -91,7 +98,8 @@ export default function EditarPerfil() {
       // Verifica se a foto foi alterada e faz upload
       let fotoURL = user.photoURL; // Mantém a foto atual se o usuário não escolher uma nova
       if (novaFotoFile) {
-        fotoURL = await uploadParaCloudinary(novaFotoFile); // Se escolher nova foto, envia para o Cloudinary
+        fotoURL = await uploadParaCloudinary(novaFotoFile);
+        console.log('URL da foto após upload:', fotoURL); // Verifique a URL da foto
       }
 
       // Atualizando o nome e foto de perfil
@@ -143,7 +151,12 @@ export default function EditarPerfil() {
       await auth.signOut();
       navigate('/');
     } catch (error) {
-      setErroExcluir('Erro ao excluir conta: ' + error.message);
+      // Exibe a mensagem de erro com base no código de erro
+      if (error.code === 'auth/missing-password') {
+        setErroExcluir('A senha fornecida está incorreta ou ausente. Tente novamente.');
+      } else {
+        setErroExcluir('Erro ao excluir conta: ' + error.message);
+      }
     }
   };
 
@@ -170,14 +183,6 @@ export default function EditarPerfil() {
               <i className={`bi ${mostrarSenha ? 'bi-eye' : 'bi-eye-slash'}`} style={{ color: '#447EB8' }}></i>
             </button>
           </div>
-          {user.providerData[0]?.providerId === 'password' && (
-            <div className="mb-3 position-relative">
-              <input type={mostrarSenhaAtual ? 'text' : 'password'} className="form-control" value={senhaAtual} onChange={(e) => setSenhaAtual(e.target.value)} placeholder="Senha atual (obrigatória)" required />
-              <button type="button" className="position-absolute top-50 end-0 translate-middle-y me-2" onClick={() => setMostrarSenhaAtual(!mostrarSenhaAtual)} style={{ backgroundColor: 'transparent', border: 'none' }}>
-                <i className={`bi ${mostrarSenhaAtual ? 'bi-eye' : 'bi-eye-slash'}`} style={{ color: '#447EB8' }}></i>
-              </button>
-            </div>
-          )}
           {erro && <p className="text-danger">{erro}</p>}
           {mensagem && <p className="text-success">{mensagem}</p>}
           <button type="submit" className="btn w-100 mb-2" style={{ backgroundColor: '#447EB8', color: '#fff' }}>Salvar alterações</button>
