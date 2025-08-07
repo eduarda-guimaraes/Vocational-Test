@@ -15,9 +15,17 @@ export default function RecuperarSenha() {
     setSucesso('');
 
     try {
-      await sendPasswordResetEmail(auth, email);
+      // Configuração do redirecionamento personalizado após a redefinição
+      const actionCodeSettings = {
+        // URL personalizada para onde o usuário será redirecionado após a redefinição
+        url: `${window.location.origin}/login`, 
+        handleCodeInApp: true,  // Indica que o link será processado no seu app
+      };
+
+      // Envia o link de redefinição com a configuração personalizada
+      await sendPasswordResetEmail(auth, email, actionCodeSettings);
       setSucesso('Link de recuperação enviado para o seu e-mail.');
-      setTimeout(() => navigate('/login'), 5000);
+      setTimeout(() => navigate('/login'), 5000);  // Redireciona para a página de login após 5 segundos
     } catch (err) {
       setErro('Erro ao enviar o link. Verifique o e-mail inserido.');
     }
