@@ -2,8 +2,14 @@ import React, { useState, useEffect } from 'react';
 import Header from '../components/header';
 import '../styles/global.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { auth, db } from '../services/firebase';
-import { signOut, EmailAuthProvider, reauthenticateWithCredential, deleteUser } from 'firebase/auth';
+import { auth, db, provider } from '../services/firebase';
+import {
+  signOut,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  reauthenticateWithPopup,
+  deleteUser
+} from 'firebase/auth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -13,12 +19,12 @@ function Perfil() {
     nome: '',
     email: '',
     senha: '********',
-    foto: '/iconevazio.png', // Foto de perfil padrão
-    dataNascimento: '' // Adicionando data de nascimento
+    foto: '/iconevazio.png',
+    dataNascimento: ''
   });
   const [historico, setHistorico] = useState([]);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);  // Modal para confirmação de exclusão
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [senhaExcluir, setSenhaExcluir] = useState('');
   const [erroExcluir, setErroExcluir] = useState('');
   const navigate = useNavigate();
@@ -27,7 +33,7 @@ function Perfil() {
   useEffect(() => {
     const fetchUserData = async () => {
       const currentUser = auth.currentUser;
-      await currentUser?.reload(); // Recarrega os dados do usuário para garantir que as atualizações sejam refletidas
+      await currentUser?.reload(); // garante dados atualizados
 
       if (currentUser) {
         try {
@@ -40,7 +46,7 @@ function Perfil() {
             email: currentUser.email,
             senha: '********',
             foto: currentUser.photoURL || dados.fotoPerfil || '/iconevazio.png',
-            dataNascimento: dados.dataNascimento || '' // Recuperando a data de nascimento
+            dataNascimento: dados.dataNascimento || ''
           };
 
           setUserData(dadosUsuario);
@@ -70,27 +76,50 @@ function Perfil() {
     }
   };
 
-  // Função para confirmar a exclusão da conta
- const confirmarExclusao = async () => {
-  setErroExcluir('');
-  try {
-    const user = auth.currentUser;
-    const cred = EmailAuthProvider.credential(user.email, senhaExcluir);
-    await reauthenticateWithCredential(user, cred);  // Reautentica com a senha fornecida
-    await deleteUser(user);  // Exclui a conta
-    await signOut(auth);  // Desloga o usuário
-    navigate('/');  // Redireciona para a página inicial após a exclusão
-  } catch (error) {
-    console.error('Erro ao excluir conta:', error);
+  // ===== Exclusão de conta (não pede senha para Google) =====
+  const confirmarExclusao = async () => {
+    setErroExcluir('');
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('Usuário não autenticado.');
 
-    // Exibe a mensagem de erro com base no código de erro
-    if (error.code === 'auth/missing-password') {
-      setErroExcluir('A senha fornecida está incorreta ou ausente. Por favor, insira a senha corretamente e tente novamente.');
-    } else {
-      setErroExcluir('Erro ao excluir conta: ' + error.message + '. Tente novamente ou entre em contato com o suporte.');
+      // Checa se existe ALGUM provedor password (contas multi-provedor inclusas)
+      const temPassword = (user.providerData || []).some(p => p.providerId === 'password');
+
+      if (temPassword) {
+        // Reautenticação por senha (contas com e-mail/senha)
+        const cred = EmailAuthProvider.credential(user.email, senhaExcluir);
+        await reauthenticateWithCredential(user, cred);
+      } else {
+        // Reautenticação via popup (Google / sem password)
+        await reauthenticateWithPopup(user, provider);
+      }
+
+      await deleteUser(user);     // Exclui a conta
+      await signOut(auth);        // Desloga
+      navigate('/');              // Redireciona
+    } catch (error) {
+      console.error('Erro ao excluir conta:', error);
+      let msg = 'Erro ao excluir conta: ';
+      switch (error.code) {
+        case 'auth/missing-password':
+          msg += 'Você precisa informar sua senha (apenas para contas com senha).';
+          break;
+        case 'auth/invalid-credential':
+          msg += 'Senha incorreta. Tente novamente.';
+          break;
+        case 'auth/popup-closed-by-user':
+          msg += 'Janela do Google foi fechada antes de confirmar.';
+          break;
+        case 'auth/requires-recent-login':
+          msg += 'Faça login novamente para concluir a exclusão.';
+          break;
+        default:
+          msg += (error.message || 'Tente novamente.');
+      }
+      setErroExcluir(msg);
     }
-  }
-};
+  };
 
   const renderContent = () => {
     if (view === 'info') {
@@ -188,6 +217,10 @@ function Perfil() {
     );
   };
 
+  // Checa dinamicamente se a conta tem provedor password (para o modal)
+  const ehContaComSenha = (auth.currentUser?.providerData || [])
+    .some(p => p.providerId === 'password');
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Header />
@@ -231,16 +264,22 @@ function Perfil() {
                 <button type="button" className="btn-close" onClick={() => setShowDeleteModal(false)}></button>
               </div>
               <div className="modal-body">
-                <p>Digite sua senha para confirmar a exclusão:</p>
-                <div className="position-relative">
-                  <input
-                    type="password"
-                    className="form-control"
-                    value={senhaExcluir}
-                    onChange={(e) => setSenhaExcluir(e.target.value)}
-                    placeholder="Senha"
-                  />
-                </div>
+                {ehContaComSenha ? (
+                  <>
+                    <p>Digite sua senha para confirmar a exclusão:</p>
+                    <div className="position-relative">
+                      <input
+                        type="password"
+                        className="form-control"
+                        value={senhaExcluir}
+                        onChange={(e) => setSenhaExcluir(e.target.value)}
+                        placeholder="Senha"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <p>Você será reautenticado(a) com o Google antes de excluir sua conta.</p>
+                )}
                 {erroExcluir && <p className="text-danger mt-2">{erroExcluir}</p>}
               </div>
               <div className="modal-footer">
