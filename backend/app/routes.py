@@ -1,7 +1,6 @@
 import os
 import openai
 import random
-import firebase_admin
 import uuid
 from firebase_admin import firestore
 from flask import Blueprint, request, jsonify
@@ -9,7 +8,7 @@ from flask import Blueprint, request, jsonify
 # Blueprint
 main = Blueprint('main', __name__)
 
-# Conjunto de perguntas sobre carreiras e interesses profissionais
+# Perguntas curtas para o chat livre (mantidas)
 perguntas_aleatorias = [
     "Você prefere trabalhar com tecnologia ou com pessoas?",
     "Você se vê em um trabalho criativo ou mais técnico?",
@@ -40,69 +39,54 @@ def salvar_mensagem(chat_id, conteudo, tipo="resposta"):
 
 def salvar_resposta_firebase(chat_id, pergunta, resposta):
     db = firestore.client()
-    # Última resposta
     respostas_ref = db.collection('chats').document(chat_id).collection('respostas')
     respostas_ref.add({
         'pergunta': pergunta,
         'resposta': resposta,
         'timestamp': firestore.SERVER_TIMESTAMP
     })
-    # Histórico completo
     salvar_mensagem(chat_id, pergunta, tipo="pergunta")
     salvar_mensagem(chat_id, resposta, tipo="resposta")
 
-def gerar_prompt_interativo(pergunta, respostas_anteriores, chat_id):
-    prompt_base = (
-        "Você é um assistente vocacional simpático. "
-        "Faça perguntas curtas e objetivas sobre os interesses pessoais do usuário. "
-        "Evite qualquer tipo de explicação ou justificativa. "
-        "As perguntas devem ser diretas, sem introduções ou explicações. "
-        "Ao responder, faça respostas concisas e completas, sem cortar frases no meio."
-    )
-
-    contexto = f"{prompt_base}\n\nMensagem mais recente do usuário: {pergunta}"
-    return contexto, gerar_pergunta_aleatoria()
+def salvar_resultado_analise(chat_id, analise_texto, fonte="analise-perfil"):
+    db = firestore.client()
+    resultados_ref = db.collection('chats').document(chat_id).collection('resultados')
+    resultados_ref.add({
+        'fonte': fonte,
+        'resultado': analise_texto,
+        'timestamp': firestore.SERVER_TIMESTAMP
+    })
+    salvar_mensagem(chat_id, analise_texto, tipo="resposta")
 
 def revisar_resposta(resposta):
-    # Função para revisar a resposta antes de enviá-la
     if len(resposta.split()) < 5:
         return "Desculpe, não consegui entender sua resposta completamente. Pode reformular?"
-    
-    # Garantir que a resposta termine com um ponto final
     if not resposta.endswith('.'):
         resposta += '.'
-
-    # Garantir que a resposta seja coerente e objetiva
     if 'não sei' in resposta.lower() or 'indeciso' in resposta.lower():
         resposta = "Que tipo de atividades você gosta de realizar no seu tempo livre?"
-    
     return resposta
 
 @main.route('/api/chat-vocacional', methods=['POST'])
 def chat_vocacional():
     data = request.get_json() or {}
     pergunta = data.get('mensagem', '')
-    respostas_anteriores = data.get('respostas_anteriores', [])
     chat_id = data.get('chat_id', gerar_chat_id())
 
     try:
-        prompt_interativo, pergunta_aleatoria = gerar_prompt_interativo(
-            pergunta, respostas_anteriores, chat_id
-        )
-
-        mensagens_completas = [{"role": "system", "content": "Você é um assistente vocacional..."}]
-        mensagens_completas.append({"role": "user", "content": pergunta})
+        mensagens_completas = [
+            {"role": "system", "content": "Você é um assistente vocacional objetivo e educado. Responda em português brasileiro, de forma clara e sem cortar frases."},
+            {"role": "user", "content": pergunta}
+        ]
 
         response = openai.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=mensagens_completas,
-            max_tokens=100,  # Permitir um limite maior de tokens para perguntas mais completas
+            max_tokens=140,
             temperature=0.7
         )
 
         conteudo = response.choices[0].message.content.strip()
-
-        # Revisar a resposta antes de enviá-la
         conteudo = revisar_resposta(conteudo)
 
         chats_contagem_perguntas[chat_id] = chats_contagem_perguntas.get(chat_id, 0) + 1
@@ -110,14 +94,81 @@ def chat_vocacional():
 
         return jsonify({
             "resposta": conteudo,
-            "pergunta_aleatoria": pergunta_aleatoria
+            "pergunta_aleatoria": None  # não usamos mais pergunta_aleatoria
         })
 
     except Exception as e:
-        print(f"Erro na IA: {e}")
+        print(f"Erro na IA (chat-vocacional): {e}")
         return jsonify({
             "resposta": "Desculpe, não consegui processar sua resposta agora. Tente novamente em alguns instantes."
         }), 500
+
+@main.route('/api/analise-perfil', methods=['POST'])
+def analise_perfil():
+    """
+    Espera:
+    {
+      "chat_id": "...",
+      "respostas": [
+        { "etapa": "ETAPA 1 – AUTOCONHECIMENTO", "pergunta": "...", "resposta": "..." },
+        ...
+      ]
+    }
+    Retorna:
+    { "analise": "texto com perfis Holland, áreas, carreiras e caminhos de formação" }
+    """
+    data = request.get_json() or {}
+    chat_id = data.get('chat_id', gerar_chat_id())
+    respostas = data.get('respostas', [])
+
+    if not respostas:
+        return jsonify({"analise": "Não recebemos respostas do questionário."}), 400
+
+    try:
+        blocos = []
+        for item in respostas:
+            etapa = item.get('etapa', '')
+            pergunta = item.get('pergunta', '')
+            resposta = item.get('resposta', '')
+            blocos.append(f"[{etapa}]\nPergunta: {pergunta}\nResposta: {resposta}")
+        contexto = "\n\n".join(blocos)
+
+        system_msg = (
+            "Você é um orientador vocacional profissional. "
+            "Com base nas respostas do questionário abaixo, produza uma análise objetiva, clara e encadeada, em PT-BR. "
+            "Inclua, nesta ordem:\n"
+            "1) Síntese do perfil (pontos fortes, preferências e estilo de trabalho)\n"
+            "2) Perfis de Holland mais prováveis (realista, investigativo, artístico, social, empreendedor, convencional) e breve justificativa\n"
+            "3) Áreas de atuação (humanas, exatas, biológicas, técnicas) mais compatíveis e por quê\n"
+            "4) 6 a 10 carreiras recomendadas (em bullets), com uma justificativa curta para cada uma\n"
+            "5) Caminhos de formação (faculdades, cursos técnicos/profissionalizantes, certificações) e primeiros passos práticos\n"
+            "Regras: seja direto, não repita perguntas, não encerre com frases genéricas, e não corte frases."
+        )
+
+        user_msg = (
+            "Respostas do questionário estruturado do usuário:\n\n"
+            f"{contexto}\n\n"
+            "Gere a análise seguindo exatamente a estrutura solicitada."
+        )
+
+        response = openai.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_msg}
+            ],
+            max_tokens=900,
+            temperature=0.6
+        )
+
+        analise = response.choices[0].message.content.strip()
+        salvar_resultado_analise(chat_id, analise, fonte="analise-perfil")
+
+        return jsonify({"analise": analise})
+
+    except Exception as e:
+        print(f"Erro na IA (analise-perfil): {e}")
+        return jsonify({"analise": "Não foi possível gerar a análise agora. Tente novamente em alguns minutos."}), 500
 
 @main.route("/healthz", methods=["GET"])
 def health_check():
