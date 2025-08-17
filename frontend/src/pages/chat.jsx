@@ -1,5 +1,5 @@
 // src/pages/chat.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Header from '../components/header';
 import '../styles/global.css';
 import '../styles/form.css';
@@ -54,29 +54,39 @@ const QUESTIONARIO = [
 ];
 
 function Chat() {
+  // Mensagens e UI
   const [messages, setMessages] = useState([
     { sender: 'bot', text: 'Olá! Antes de usar a IA, vamos passar por um questionário rápido para entender melhor seu perfil. Tudo bem?' }
   ]);
   const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Auth/Chat
   const [chatId, setChatId] = useState(null);
   const [userId, setUserId] = useState(null);
   const [userPhoto, setUserPhoto] = useState('/iconevazio.png');
-  const [loading, setLoading] = useState(false);
+  const [isUserLoggedIn, setIsUserLoggedIn] = useState(true);
 
-  // Fluxo
+  // Fluxo do questionário/IA
   const [modo, setModo] = useState('questionario'); // 'questionario' | 'ia'
   const [etapaIndex, setEtapaIndex] = useState(0);
   const [perguntaIndex, setPerguntaIndex] = useState(0);
   const [respostas, setRespostas] = useState([]); // [{ etapa, pergunta, resposta }]
+  const [isTestEnded, setIsTestEnded] = useState(false);
+  const [respostasAnterioresIA, setRespostasAnterioresIA] = useState([]); // histórico apenas do modo IA
+
+  // Layout (textarea auto-altura)
+  const textareaRef = useRef(null);
+  const [textareaHeight, setTextareaHeight] = useState(50);
 
   const backendUrl = import.meta.env.VITE_API_URL;
 
-  // Helpers de Firestore
+  // Helpers Firestore
   const salvarMensagem = async (tipo, conteudo) => {
     try {
       if (!chatId) return;
       await addDoc(collection(db, 'chats', chatId, 'mensagens'), {
-        tipo, // 'pergunta' | 'resposta' (aqui tratamos como mensagem livre)
+        tipo, // 'pergunta' (user) | 'resposta' (bot)
         conteudo,
         timestamp: serverTimestamp()
       });
@@ -103,11 +113,13 @@ function Chat() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
+        setIsUserLoggedIn(false);
         setUserId(null);
         setChatId(null);
         return;
       }
 
+      setIsUserLoggedIn(true);
       setUserId(user.uid);
       setUserPhoto(user.photoURL || '/iconevazio.png');
 
@@ -119,7 +131,7 @@ function Chat() {
           });
           setChatId(chatRef.id);
 
-          // Mensagem inicial do questionário
+          // Primeira pergunta do questionário
           const primeira = QUESTIONARIO[0];
           enqueueBot(`${primeira.etapa}\n${primeira.objetivo}\n\n${primeira.perguntas[0]}`);
         } catch (error) {
@@ -132,10 +144,13 @@ function Chat() {
     return () => unsubscribe();
   }, [chatId]);
 
+  // Scroll automático para o fim
   const scrollToBottom = () => {
     setTimeout(() => {
       const chatContainer = document.getElementById('chatContainer');
-      if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
+      if (chatContainer) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
     }, 80);
   };
 
@@ -172,7 +187,7 @@ function Chat() {
     }
 
     // Finalizou questionário → chama análise
-    finalizarQuestionario();
+    await finalizarQuestionario();
   };
 
   const finalizarQuestionario = async () => {
@@ -206,7 +221,11 @@ function Chat() {
       const response = await fetch(`${backendUrl}/api/chat-vocacional`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mensagem, respostas_anteriores: [], chat_id: chatId })
+        body: JSON.stringify({
+          mensagem,
+          respostas_anteriores: respostasAnterioresIA,
+          chat_id: chatId
+        })
       });
       return await response.json();
     } catch (error) {
@@ -216,12 +235,14 @@ function Chat() {
   };
 
   const handleSend = async () => {
-    if (!input.trim() || !chatId) return;
+    if (!input.trim() || !chatId || !isUserLoggedIn || isTestEnded) return;
 
     const texto = input.trim();
+
     await enqueueUser(texto);
     setInput('');
 
+    // Questionário
     if (modo === 'questionario') {
       const etapaAtual = QUESTIONARIO[etapaIndex];
       const perguntaAtual = etapaAtual.perguntas[perguntaIndex];
@@ -230,27 +251,50 @@ function Chat() {
       setRespostas((prev) => [...prev, registro]);
       await salvarRespostaQuestionario(registro);
 
-      proximaPergunta();
+      await proximaPergunta();
       return;
     }
 
     // Modo IA livre
+    // Comando manual de encerramento:
+    if (texto.toLowerCase() === 'encerrar teste') {
+      setIsTestEnded(true);
+      await enqueueBot('Teste encerrado! Obrigado por participar. Você pode visualizar os resultados agora.');
+      return;
+    }
+
     setLoading(true);
     const data = await enviarParaIA(texto);
     setLoading(false);
 
+    // Guarda histórico sucinto de respostas anteriores para o backend (apenas as do usuário no modo IA)
+    setRespostasAnterioresIA((prev) => [...prev, texto].slice(-10));
+
+    // Backend pode sinalizar finalização
     if (data?.finalizado) {
       await enqueueBot(data.resposta || 'Teste encerrado. Obrigado por participar!');
-      // Opcional: mudar UI se quiser
+      setIsTestEnded(true);
       return;
     }
 
-    const respostaIA = data.resposta || 'Não consegui entender, pode reformular?';
+    const respostaIA = data?.resposta || 'Não consegui entender, pode reformular?';
     await enqueueBot(respostaIA);
   };
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter') handleSend();
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleInput = () => {
+    if (textareaRef.current) {
+      // Ajuste suave de altura (limite opcional para não crescer demais)
+      textareaRef.current.style.height = 'auto';
+      const next = Math.min(textareaRef.current.scrollHeight, 160);
+      setTextareaHeight(Math.max(next, 50));
+    }
   };
 
   // Progresso do questionário
@@ -264,34 +308,42 @@ function Chat() {
 
       <main style={{ flex: 1, minHeight: 'calc(100vh - 90px)' }}>
         <div className="container py-4" style={{ paddingTop: '30px' }}>
-          <div className="alert text-center rounded-4 shadow-sm p-4" style={{ backgroundColor: '#e3f2fd', color: '#0d47a1' }}>
-            <h5 className="mb-2 fw-bold">Como funciona o teste vocacional?</h5>
-            <p className="mb-0">
-              Primeiro, você responde um questionário estruturado. Em seguida, a IA analisa seu perfil e oferece sugestões de carreiras.
-              {emQuestionario ? (
-                <>
-                  <br />
-                  <strong>Progresso:</strong> {respondidas}/{totalPerguntas}
-                </>
-              ) : (
-                <>
-                  <br />
-                  <strong>Dica:</strong> você pode digitar <strong>"encerrar teste"</strong> para terminar quando quiser.
-                </>
-              )}
-            </p>
-          </div>
-
-          {/* Aviso quando não está logado */}
-          {!userId && (
+          {/* Aviso login */}
+          {!isUserLoggedIn && (
             <div className="alert alert-warning rounded-4 shadow-sm d-flex flex-column align-items-center text-center">
-              <div className="mb-2">⚠️ Você precisa estar logado para iniciar o teste vocacional.</div>
+              <div className="mb-2">
+                ⚠️ Você precisa estar logado para iniciar o teste vocacional.
+              </div>
               <div className="d-flex gap-2">
                 <Link to="/login" className="btn btn-primary rounded-pill px-4">Fazer login</Link>
                 <Link to="/perfil" className="btn btn-outline-secondary rounded-pill px-4">Ir para o perfil</Link>
               </div>
             </div>
           )}
+
+          <div
+            className="alert text-center rounded-4 shadow-sm p-4"
+            style={{ backgroundColor: '#e3f2fd', color: '#0d47a1' }}
+          >
+            <h5 className="mb-2 fw-bold">Como funciona o teste vocacional?</h5>
+            <p className="mb-0">
+              {emQuestionario ? (
+                <>
+                  Primeiro, você responde um questionário estruturado. Em seguida, a IA analisa seu perfil e oferece
+                  sugestões de carreiras.
+                  <br />
+                  <strong>Progresso:</strong> {respondidas}/{totalPerguntas}
+                </>
+              ) : (
+                <>
+                  Converse com nosso assistente sobre seus interesses. A inteligência artificial analisará suas respostas
+                  e recomendará áreas profissionais ideais para você.
+                  <br />
+                  <strong>Dica:</strong> você pode digitar <strong>"encerrar teste"</strong> a qualquer momento para terminar e ver o resultado.
+                </>
+              )}
+            </p>
+          </div>
 
           <div
             className="chat-box p-3 mt-4"
@@ -325,8 +377,14 @@ function Chat() {
                   <img
                     src={msg.sender === 'user' ? userPhoto : '/logo.png'}
                     alt={msg.sender === 'user' ? 'Você' : 'Bot'}
-                    onError={(e) => { e.target.src = '/iconevazio.png'; }}
-                    style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover', margin: 'auto' }}
+                    onError={(e) => { e.currentTarget.src = '/iconevazio.png'; }}
+                    style={{
+                      width: '30px',
+                      height: '30px',
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      margin: 'auto'
+                    }}
                   />
                 </div>
                 <div
@@ -346,21 +404,38 @@ function Chat() {
             ))}
           </div>
 
+          {isTestEnded && (
+            <div className="alert alert-success text-center mt-3">
+              <strong>Teste encerrado!</strong> Obrigado por participar. Você pode visualizar os resultados agora.
+            </div>
+          )}
+
           <div className="d-flex mt-4">
-            <input
-              type="text"
-              className="form-control rounded-pill px-4"
+            <textarea
+              ref={textareaRef}
+              className="form-control rounded-pill px-4 text-start"
               placeholder={emQuestionario ? 'Responda à pergunta...' : 'Digite algo...'}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyPress}
-              disabled={!chatId || loading}
-              style={{ height: '50px', border: '1px solid #ccc', marginRight: '10px' }}
+              onInput={handleInput}
+              disabled={!chatId || loading || !isUserLoggedIn || isTestEnded}
+              rows={1}
+              style={{
+                border: '1px solid #ccc',
+                marginRight: '10px',
+                resize: 'none',
+                minHeight: '50px',
+                height: `${textareaHeight}px`,
+                paddingTop: '10px',
+                paddingBottom: '10px',
+                paddingLeft: '12px'
+              }}
             />
             <button
               className="btn btn-primary rounded-pill px-4"
               onClick={handleSend}
-              disabled={!chatId || loading}
+              disabled={!chatId || loading || !isUserLoggedIn || isTestEnded}
             >
               {loading ? 'Enviando...' : 'Enviar'}
             </button>
