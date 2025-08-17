@@ -30,3 +30,4 @@ coverage/
 
 # Uploads locais (se não for usar no repositório)
 uploads/
+"backend/config/firebase-credentials.json"

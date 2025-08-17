@@ -1,0 +1,40 @@
+# Credenciais e variáveis
+config/firebase-credentials.json
+.env
+*.env
+*.secret
+*.key
+*.pem
+
+# Virtualenv
+venv/
+.venv/
+ENV/
+env/
+
+# Cache do Python
+_pycache_/
+*.py[cod]
+*$py.class
+
+# Logs e temporários
+*.log
+*.tmp
+*.bak
+*.swp
+
+# Artefatos de build
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# Ferramentas/IDE
+.vscode/
+.idea/
+.python-version
+
+# Testes
+.pytest_cache/
+.coverage
+htmlcov/
