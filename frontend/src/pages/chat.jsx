@@ -55,10 +55,7 @@ const QUESTIONARIO = [
 
 function Chat() {
   const [messages, setMessages] = useState([
-    {
-      sender: 'bot',
-      text: 'Olá! Antes de usar a IA, vamos passar por um questionário rápido para entender melhor seu perfil. Tudo bem?'
-    }
+    { sender: 'bot', text: 'Olá! Antes de usar a IA, vamos passar por um questionário rápido para entender melhor seu perfil. Tudo bem?' }
   ]);
   const [input, setInput] = useState('');
   const [chatId, setChatId] = useState(null);
@@ -66,7 +63,7 @@ function Chat() {
   const [userPhoto, setUserPhoto] = useState('/iconevazio.png');
   const [loading, setLoading] = useState(false);
 
-  // Estado do fluxo
+  // Fluxo
   const [modo, setModo] = useState('questionario'); // 'questionario' | 'ia'
   const [etapaIndex, setEtapaIndex] = useState(0);
   const [perguntaIndex, setPerguntaIndex] = useState(0);
@@ -74,9 +71,42 @@ function Chat() {
 
   const backendUrl = import.meta.env.VITE_API_URL;
 
+  // Helpers de Firestore
+  const salvarMensagem = async (tipo, conteudo) => {
+    try {
+      if (!chatId) return;
+      await addDoc(collection(db, 'chats', chatId, 'mensagens'), {
+        tipo, // 'pergunta' | 'resposta' (aqui tratamos como mensagem livre)
+        conteudo,
+        timestamp: serverTimestamp()
+      });
+    } catch (e) {
+      console.error('Falha ao salvar mensagem:', e);
+    }
+  };
+
+  const salvarRespostaQuestionario = async ({ etapa, pergunta, resposta }) => {
+    try {
+      if (!chatId) return;
+      await addDoc(collection(db, 'chats', chatId, 'respostas'), {
+        etapa,
+        pergunta,
+        resposta,
+        timestamp: serverTimestamp()
+      });
+    } catch (e) {
+      console.error('Falha ao salvar resposta do questionário:', e);
+    }
+  };
+
   // Autenticação e criação do chat
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        setUserId(null);
+        setChatId(null);
+        return;
+      }
 
       setUserId(user.uid);
       setUserPhoto(user.photoURL || '/iconevazio.png');
@@ -109,23 +139,25 @@ function Chat() {
     }, 80);
   };
 
-  const enqueueBot = (text) => {
+  const enqueueBot = async (text) => {
     setMessages((prev) => [...prev, { sender: 'bot', text }]);
+    await salvarMensagem('resposta', text);
     scrollToBottom();
   };
 
-  const enqueueUser = (text) => {
+  const enqueueUser = async (text) => {
     setMessages((prev) => [...prev, { sender: 'user', text }]);
+    await salvarMensagem('pergunta', text);
     scrollToBottom();
   };
 
-  const proximaPergunta = () => {
+  const proximaPergunta = async () => {
     const etapa = QUESTIONARIO[etapaIndex];
     const proxPergIndex = perguntaIndex + 1;
 
     if (proxPergIndex < etapa.perguntas.length) {
       setPerguntaIndex(proxPergIndex);
-      enqueueBot(etapa.perguntas[proxPergIndex]);
+      await enqueueBot(etapa.perguntas[proxPergIndex]);
       return;
     }
 
@@ -135,7 +167,7 @@ function Chat() {
       setEtapaIndex(proxEtapaIndex);
       setPerguntaIndex(0);
       const nova = QUESTIONARIO[proxEtapaIndex];
-      enqueueBot(`${nova.etapa}\n${nova.objetivo}\n\n${nova.perguntas[0]}`);
+      await enqueueBot(`${nova.etapa}\n${nova.objetivo}\n\n${nova.perguntas[0]}`);
       return;
     }
 
@@ -149,26 +181,21 @@ function Chat() {
       const resp = await fetch(`${backendUrl}/api/analise-perfil`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          respostas // array de { etapa, pergunta, resposta }
-        })
+        body: JSON.stringify({ chat_id: chatId, respostas })
       });
 
       const data = await resp.json();
 
-      enqueueBot(
+      await enqueueBot(
         `ETAPA 5 – SUGESTÕES E ANÁLISE DO PERFIL\n\n${data?.analise || 'Análise indisponível no momento.'}`
       );
 
       // Entra em modo IA livre
       setModo('ia');
-      enqueueBot(
-        'Agora você pode continuar conversando livremente comigo. Se quiser encerrar, digite "encerrar teste".'
-      );
+      await enqueueBot('Agora você pode conversar livremente comigo. Para encerrar, digite "encerrar teste".');
     } catch (e) {
       console.error('Erro ao gerar análise:', e);
-      enqueueBot('Houve um erro ao gerar sua análise. Tente novamente em alguns instantes.');
+      await enqueueBot('Houve um erro ao gerar sua análise. Tente novamente em alguns instantes.');
     } finally {
       setLoading(false);
     }
@@ -179,19 +206,12 @@ function Chat() {
       const response = await fetch(`${backendUrl}/api/chat-vocacional`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mensagem,
-          respostas_anteriores: [],
-          chat_id: chatId
-        })
+        body: JSON.stringify({ mensagem, respostas_anteriores: [], chat_id: chatId })
       });
       return await response.json();
     } catch (error) {
       console.error('Erro ao enviar para IA:', error);
-      return {
-        resposta: 'Houve um erro ao se conectar com a IA.',
-        pergunta_aleatoria: null
-      };
+      return { resposta: 'Houve um erro ao se conectar com a IA.', pergunta_aleatoria: null };
     }
   };
 
@@ -199,21 +219,16 @@ function Chat() {
     if (!input.trim() || !chatId) return;
 
     const texto = input.trim();
-    enqueueUser(texto);
+    await enqueueUser(texto);
     setInput('');
 
     if (modo === 'questionario') {
       const etapaAtual = QUESTIONARIO[etapaIndex];
       const perguntaAtual = etapaAtual.perguntas[perguntaIndex];
 
-      setRespostas((prev) => [
-        ...prev,
-        {
-          etapa: etapaAtual.etapa,
-          pergunta: perguntaAtual,
-          resposta: texto
-        }
-      ]);
+      const registro = { etapa: etapaAtual.etapa, pergunta: perguntaAtual, resposta: texto };
+      setRespostas((prev) => [...prev, registro]);
+      await salvarRespostaQuestionario(registro);
 
       proximaPergunta();
       return;
@@ -224,8 +239,14 @@ function Chat() {
     const data = await enviarParaIA(texto);
     setLoading(false);
 
+    if (data?.finalizado) {
+      await enqueueBot(data.resposta || 'Teste encerrado. Obrigado por participar!');
+      // Opcional: mudar UI se quiser
+      return;
+    }
+
     const respostaIA = data.resposta || 'Não consegui entender, pode reformular?';
-    enqueueBot(respostaIA);
+    await enqueueBot(respostaIA);
   };
 
   const handleKeyPress = (e) => {
@@ -261,12 +282,13 @@ function Chat() {
             </p>
           </div>
 
-          {/* Aviso e CTA quando não está logado */}
+          {/* Aviso quando não está logado */}
           {!userId && (
             <div className="alert alert-warning rounded-4 shadow-sm d-flex flex-column align-items-center text-center">
               <div className="mb-2">⚠️ Você precisa estar logado para iniciar o teste vocacional.</div>
               <div className="d-flex gap-2">
-                <Link to="/login" className="btn btn-outline-secondary rounded-pill px-4">Ir para o perfil</Link>
+                <Link to="/login" className="btn btn-primary rounded-pill px-4">Fazer login</Link>
+                <Link to="/perfil" className="btn btn-outline-secondary rounded-pill px-4">Ir para o perfil</Link>
               </div>
             </div>
           )}
@@ -304,13 +326,7 @@ function Chat() {
                     src={msg.sender === 'user' ? userPhoto : '/logo.png'}
                     alt={msg.sender === 'user' ? 'Você' : 'Bot'}
                     onError={(e) => { e.target.src = '/iconevazio.png'; }}
-                    style={{
-                      width: '30px',
-                      height: '30px',
-                      borderRadius: '50%',
-                      objectFit: 'cover',
-                      margin: 'auto'
-                    }}
+                    style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover', margin: 'auto' }}
                   />
                 </div>
                 <div
@@ -339,11 +355,7 @@ function Chat() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyPress}
               disabled={!chatId || loading}
-              style={{
-                height: '50px',
-                border: '1px solid #ccc',
-                marginRight: '10px'
-              }}
+              style={{ height: '50px', border: '1px solid #ccc', marginRight: '10px' }}
             />
             <button
               className="btn btn-primary rounded-pill px-4"
