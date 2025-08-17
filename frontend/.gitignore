@@ -1,7 +1,7 @@
 # node modules
 node_modules/
 
-# arquivos de build (caso você use `vite build`)
+# arquivos de build (caso você use vite build)
 dist/
 
 # arquivos de ambiente
@@ -22,5 +22,5 @@ Thumbs.db
 # cache do Vite
 .vite/
 
-# configurações do editor
+# configurações do editor
 .vscode/

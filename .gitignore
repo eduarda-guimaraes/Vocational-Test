@@ -1,0 +1,33 @@
+# Dependências
+node_modules/
+
+# Builds
+dist/
+build/
+
+# Arquivos de ambiente e segredos
+.env
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Cache do editor/IDE
+.vscode/
+.idea/
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
+
+# Cobertura de testes
+coverage/
+*.lcov
+
+# Uploads locais (se não for usar no repositório)
+uploads/
+"backend/config/firebase-credentials.json"

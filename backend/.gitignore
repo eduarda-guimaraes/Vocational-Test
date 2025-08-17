@@ -1,33 +1,40 @@
-# Ignora arquivos compilados do Python
-__pycache__/
-*.pyc
-*.py[cod]
-*.pyo
+# Credenciais e variáveis
+config/firebase-credentials.json
+.env
+*.env
+*.secret
+*.key
+*.pem
 
-# Ignora ambientes virtuais
+# Virtualenv
 venv/
 .venv/
+ENV/
+env/
 
-# Ignora arquivos de ambiente
-.env
+# Cache do Python
+_pycache_/
+*.py[cod]
+*$py.class
 
-# Ignora credenciais sensíveis
-firebase-credentials.json
-/config/
-
-# Ignora arquivos de configuração de IDEs
-.vscode/
-.idea/
+# Logs e temporários
+*.log
+*.tmp
+*.bak
 *.swp
 
-# Ignora arquivos de sistema
-.DS_Store
-Thumbs.db
+# Artefatos de build
+dist/
+build/
+*.egg-info/
+.eggs/
 
-# Ignora arquivos de log
-*.log
+# Ferramentas/IDE
+.vscode/
+.idea/
+.python-version
 
-# Ignora arquivos do frontend
-frontend/node_modules/
-frontend/dist/
-frontend/build/
+# Testes
+.pytest_cache/
+.coverage
+htmlcov/
