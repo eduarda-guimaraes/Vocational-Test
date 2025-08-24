@@ -21,7 +21,7 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { Link } from 'react-router-dom';
 
-const HEADER_H = 72; // altura aproximada do header (nav). Ajuste p/ 64~80 se precisar.
+const HEADER_H = 72; // altura aproximada do header (nav). Ajuste conforme o seu header.
 
 const QUESTIONARIO = [
   {
@@ -457,12 +457,15 @@ function Chat() {
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Header />
 
-    <main style={{ 
-      flex: 1, 
-      display: 'flex', 
-      marginLeft: '250px',
-      paddingTop: `${HEADER_H}px`   // garante espaço abaixo do header
-    }}>
+      {/* Header NÃO é fixo -> não usar padding grande aqui */}
+      <main
+        style={{
+          flex: 1,
+          display: 'flex',
+          marginLeft: '250px',
+          paddingTop: '12px' // antes era `${HEADER_H}px` e sobrava espaço
+        }}
+      >
         {/* Sidebar fixa */}
         {isUserLoggedIn && (
           <aside
@@ -474,16 +477,14 @@ function Chat() {
               display: 'flex',
               flexDirection: 'column',
               gap: '10px',
-              height: `calc(100vh - ${HEADER_H}px)`, // ↓ não vai passar por baixo do header
+              height: `calc(100vh - ${HEADER_H}px)`, // ocupa o viewport inteiro, descontando o header
               position: 'fixed',
               left: 0,
-              top: `${HEADER_H}px`,                  // ↓ descola do header
+              top: `${HEADER_H}px`, // não fica por baixo do header
               boxShadow: '2px 0 6px rgba(0,0,0,0.08)',
               overflowY: 'auto'
             }}
           >
-
-
             <h6 className="fw-bold mb-3">Seus Chats</h6>
 
             {historicoChats.map((c) => (
@@ -512,7 +513,7 @@ function Chat() {
         )}
 
         {/* Área principal do chat */}
-        <div className="container py-4 flex-grow-1" style={{ paddingTop: '1px' }}>
+        <div className="container py-4 flex-grow-1" style={{ paddingTop: '0px' }}>
           {!isUserLoggedIn && (
             <div className="alert alert-warning rounded-4 shadow-sm d-flex flex-column align-items-center text-center">
               <div className="mb-2">⚠️ Você precisa estar logado para iniciar o teste vocacional.</div>
@@ -523,17 +524,16 @@ function Chat() {
             </div>
           )}
 
-          {/* Aviso/guia — jogado mais para baixo para não colar na header */}
+          {/* Aviso/guia */}
           <div
             className="alert text-center rounded-4 shadow-sm p-4"
             style={{
               backgroundColor: '#e3f2fd',
               color: '#0d47a1',
-              marginTop: '1px',     // era 40px
-              marginBottom: '2px'
+              marginTop: '8px',
+              marginBottom: '12px'
             }}
           >
-
             <h5 className="mb-2 fw-bold">Como funciona o teste vocacional?</h5>
             <p className="mb-0">
               {emQuestionario ? (
@@ -558,7 +558,7 @@ function Chat() {
             style={{
               backgroundColor: '#f9f9f9',
               borderRadius: '15px',
-              maxHeight: 'calc(100vh - 300px)',
+              maxHeight: 'calc(100vh - 240px)', // subimos um pouco o conteúdo
               overflowY: 'auto',
               scrollBehavior: 'smooth',
               display: 'flex',
