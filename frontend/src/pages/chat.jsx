@@ -157,6 +157,10 @@ function Chat() {
 
   const finalizarQuestionario = async () => {
     setLoading(true);
+    
+    // Mensagem enquanto aguarda a análise
+    await enqueueBot('Espere uns minutos, a análise está sendo feita...');
+    
     try {
       const resp = await fetch(`${backendUrl}/api/analise-perfil`, {
         method: 'POST',
@@ -166,9 +170,13 @@ function Chat() {
 
       const data = await resp.json();
 
+      // Salvando a resposta da IA no histórico
       await enqueueBot(
         `ETAPA 5 – SUGESTÕES E ANÁLISE DO PERFIL\n\n${data?.analise || 'Análise indisponível no momento.'}`
       );
+
+      // Salvando a resposta no Firestore
+      await salvarMensagem('resumo_final', data?.analise || 'Análise indisponível no momento.');
 
       // Entra em modo IA livre
       setModo('ia');
@@ -180,6 +188,8 @@ function Chat() {
       setLoading(false);
     }
   };
+
+
 
   // Autenticação e criação do chat
   useEffect(() => {
@@ -233,6 +243,7 @@ function Chat() {
       return { resposta: 'Houve um erro ao se conectar com a IA.', pergunta_aleatoria: null };
     }
   };
+
 
   const handleSend = async () => {
     if (!input.trim() || !chatId || !isUserLoggedIn || isTestEnded) return;
