@@ -5,10 +5,15 @@
   box-sizing: border-box;
 }
 
-/* Espaçamento do header */
-.header-spacing {
-  margin-top: 130px;
+/* Paleta (fácil de alterar depois) */
+:root{
+  --brand-blue:   #447EB8;   /* azul existente, mantém onde já usa */
+  --brand-purple: #9068ba;   /* roxo novo */
+  --brand-yellow: #d4a017;   /* amarelo queimado */
 }
+
+/* Espaçamento do header */
+.header-spacing { margin-top: 130px; }
 
 /* Navbar */
 .navbar {
@@ -25,198 +30,94 @@
   font-weight: 400;
   transition: color 0.3s ease;
 }
-
 .nav-link::after {
   content: '';
   position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 0;
-  height: 2px;
-  background-color: #447eb8;
+  bottom: 0; left: 0;
+  width: 0; height: 2px;
+  background-color: var(--brand-blue);
   transition: width 0.3s ease;
 }
-
-.nav-link:hover {
-  color: #447eb8;
-}
-
-.nav-link:hover::after,
-.nav-link.active::after {
-  width: 100%;
-}
-
-.nav-link.active {
-  color: #447eb8;
-  font-weight: 500;
-}
+.nav-link:hover { color: var(--brand-blue); }
+.nav-link:hover::after, .nav-link.active::after { width: 100%; }
+.nav-link.active { color: var(--brand-blue); font-weight: 500; }
 
 /* Botão "Iniciar Teste" */
 .btn-iniciar-teste {
-  color: #000000;
-  background-color: #ffffff;
-  border-radius: 50px;
-  padding: 10px 24px;
-  transition: all 0.3s ease;
-  font-weight: 500;
-  white-space: nowrap;
-  text-align: center;
-  max-width: 80%;
-  width: auto;
+  color: #000000; background-color: #ffffff;
+  border-radius: 50px; padding: 10px 24px;
+  transition: all 0.3s ease; font-weight: 500;
+  white-space: nowrap; text-align: center;
+  max-width: 80%; width: auto;
 }
-
 .btn-iniciar-teste:hover {
-  background-color: #0097B2;
-  color: #ffffff;
-  transform: translateY(-2px);
+  background-color: #0097B2; color: #ffffff; transform: translateY(-2px);
 }
 
 /* Botão Perfil */
 .btn-perfil {
-  background-color: #447EB8;
-  color: #fff;
-  border: none;
+  background-color: var(--brand-blue); color: #fff; border: none;
   transition: background-color 0.3s ease, transform 0.2s ease;
-  border-radius: 10px;
-  padding: 2%;
+  border-radius: 10px; padding: 2%;
 }
-
-.btn-perfil:hover {
-  background-color: #366ba1;
-  transform: scale(1.02);
-  cursor: pointer;
-}
+.btn-perfil:hover { background-color: #366ba1; transform: scale(1.02); cursor: pointer; }
 
 /* Ajustes no botão de perfil da navbar */
-.nav-perfil::after {
-  display: none !important;
-}
-
-.nav-perfil:hover {
-  color: inherit !important;
-}
-
-.nav-perfil:hover .bi-person {
-  color: #447eb8;
-}
+.nav-perfil::after { display: none !important; }
+.nav-perfil:hover { color: inherit !important; }
+.nav-perfil:hover .bi-person { color: var(--brand-blue); }
 
 /* Texto justificado */
-.text-justified {
-  text-align: justify;
-  text-indent: 2em;
-  hyphens: auto;
-}
+.text-justified { text-align: justify; text-indent: 2em; hyphens: auto; }
 
 /* Título principal */
 .titulo-principal {
-  font-size: 2.2rem;
-  text-align: center;
-  font-weight: bold;
-  line-height: 1.2;
-  margin-bottom: 1rem;
-  max-width: 90%;
+  font-size: 2.2rem; text-align: center; font-weight: bold;
+  line-height: 1.2; margin-bottom: 1rem; max-width: 90%;
 }
-
 @media (max-width: 768px) {
-  .titulo-principal {
-    font-size: 1.6rem;
-  }
-
-  .row.text-center {
-    gap: 1rem;
-  }
+  .titulo-principal { font-size: 1.6rem; }
+  .row.text-center { gap: 1rem; }
 }
-
 @media (max-width: 480px) {
-  .titulo-principal {
-    font-size: 1.3rem;
-    line-height: 1.4;
-  }
+  .titulo-principal { font-size: 1.3rem; line-height: 1.4; }
 }
 
 /* Banner */
-.banner {
-  height: auto;
-  max-width: 100%;
-  object-fit: cover;
-  display: block;
-}
+.banner { height: auto; max-width: 100%; object-fit: cover; display: block; }
 
 /* Padding em telas pequenas */
 @media (max-width: 576px) {
-  body {
-    padding-left: 10px;
-    padding-right: 10px;
-  }
-
-  .accordion {
-    padding-left: 8px;
-    padding-right: 8px;
-  }
-
-  .card-body p {
-    font-size: 0.95rem;
-  }
+  body { padding-left: 10px; padding-right: 10px; }
+  .accordion { padding-left: 8px; padding-right: 8px; }
+  .card-body p { font-size: 0.95rem; }
 }
 
 /* Card body */
-.card-body {
-  padding: 1rem;
-}
-
+.card-body { padding: 1rem; }
 .card-body p {
-  text-align: center;
-  font-size: 1rem;
-  margin-top: 0.5rem;
-  max-width: 85%;
+  text-align: center; font-size: 1rem; margin-top: 0.5rem; max-width: 85%;
 }
 
 /* Card azul com info */
 .card-info {
-  background-color: #f8f9fa;
-  border-left: 6px solid #447EB8;
-  border-radius: 1rem;
-  border: none;
-  height: 100%;
-  padding: 2rem;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  text-align: center;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  background-color: #f8f9fa; border-left: 6px solid var(--brand-blue);
+  border-radius: 1rem; border: none; height: 100%; padding: 2rem;
+  display: flex; flex-direction: column; justify-content: flex-start;
+  text-align: center; transition: transform 0.3s ease, box-shadow 0.3s ease;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
 }
+.card-info:hover { transform: translateY(-5px); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1); }
+.card-info h5 { color: var(--brand-blue); font-weight: bold; margin-bottom: 1rem; }
+.card-info p { color: #333; margin: 0; font-size: 1rem; line-height: 1.5; flex-grow: 1; }
 
-.card-info:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
-}
+html, body, #root { margin: 0; padding: 0; height: 100%; }
 
-.card-info h5 {
-  color: #447EB8;
-  font-weight: bold;
-  margin-bottom: 1rem;
-}
-
-.card-info p {
-  color: #333;
-  margin: 0;
-  font-size: 1rem;
-  line-height: 1.5;
-  flex-grow: 1;
-}
-
-html, body, #root {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-}
-
-/* Botões da sidebar */
+/* === Botões da sidebar (agora roxos) === */
 .chat-btn {
   background: transparent;
-  border: 2px solid #447EB8;
-  color: #447EB8;
+  border: 2px solid var(--brand-purple);
+  color: var(--brand-purple);
   border-radius: 20px;
   padding: 10px 16px;
   text-align: left;
@@ -226,27 +127,57 @@ html, body, #root {
   cursor: pointer;
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
-
 .chat-btn:hover {
-  background-color: #447EB8;
+  background-color: var(--brand-purple);
   color: #fff;
   box-shadow: 0 4px 10px rgba(0,0,0,0.15);
   transform: translateY(-1px);
 }
-
 .chat-btn.active {
-  background-color: #447EB8;
+  background-color: var(--brand-purple);
   color: #fff;
   box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
+.chat-btn.novo { border-style: dashed; font-weight: bold; background: #fafafa; }
+.chat-btn.novo:hover { background: var(--brand-purple); color: #fff; }
 
-.chat-btn.novo {
-  border-style: dashed;
-  font-weight: bold;
-  background: #fafafa;
+/* === Botão de trancar/destrancar (amarelo queimado) === */
+.btn-outline-warning {
+  border-color: var(--brand-yellow) !important;
+  color: var(--brand-yellow) !important;
+}
+.btn-outline-warning:hover {
+  background-color: var(--brand-yellow) !important;
+  color: #fff !important;
 }
 
-.chat-btn.novo:hover {
-  background: #447EB8;
+/* Modal – Vocational Test (glass com roxo #9068ba) */
+.vt-modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(8, 7, 19, 0.45);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1050; animation: vt-fade-in 150ms ease-out;
+}
+.vt-modal {
+  width: min(520px, 92vw);
+  /* gradiente ajustado para puxar o roxo novo */
+  background: radial-gradient(120% 140% at 10% 0%, var(--brand-purple) 0%, #5a3c86 45%, #1b1731 100%);
   color: #fff;
+  border-radius: 18px;
+  box-shadow: 0 10px 35px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+  overflow: hidden;
+  transform: translateY(-6px);
+  animation: vt-pop 180ms cubic-bezier(.2,.8,.2,1);
 }
+.vt-modal-header {
+  padding: 14px 18px; font-weight: 700; letter-spacing: .2px;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+}
+.vt-modal-header .bi-exclamation-triangle-fill { font-size: 1.1rem; }
+.vt-modal-body { padding: 16px 18px 8px 18px; line-height: 1.4; }
+.vt-modal-footer { padding: 14px 18px 18px 18px; }
+
+/* animações */
+@keyframes vt-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes vt-pop { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }

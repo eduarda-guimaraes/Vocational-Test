@@ -16,12 +16,14 @@ import {
   getDocs,
   orderBy,
   deleteDoc,
-  doc
+  doc,
+  updateDoc,
+  getDoc
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Link } from 'react-router-dom';
 
-const HEADER_H = 72; // altura aproximada do header (nav). Ajuste conforme o seu header.
+const HEADER_H = 72;
 
 const QUESTIONARIO = [
   {
@@ -85,12 +87,19 @@ function Chat() {
   const [etapaIndex, setEtapaIndex] = useState(0);
   const [perguntaIndex, setPerguntaIndex] = useState(0);
   const [respostas, setRespostas] = useState([]);
-  const [isTestEnded, setIsTestEnded] = useState(false);
+  const [isTestEnded, setIsTestEnded] = useState(false); // espelha "bloqueado"
   const [respostasAnterioresIA, setRespostasAnterioresIA] = useState([]);
 
   // Layout
   const textareaRef = useRef(null);
   const [textareaHeight, setTextareaHeight] = useState(50);
+
+  // Modal de confirmação de exclusão
+  const [confirmDelete, setConfirmDelete] = useState({
+    open: false,
+    chatId: null,
+    title: ''
+  });
 
   const backendUrl = import.meta.env.VITE_API_URL;
 
@@ -153,13 +162,49 @@ function Chat() {
     }
   };
 
+  // abrir/fechar modal
+  const openDeleteModal = (id, title) =>
+    setConfirmDelete({ open: true, chatId: id, title });
+  const closeDeleteModal = () =>
+    setConfirmDelete({ open: false, chatId: null, title: '' });
+  const confirmDeleteChat = async () => {
+    if (!confirmDelete.chatId) return;
+    await excluirChat(confirmDelete.chatId);
+    closeDeleteModal();
+  };
+
+  // Trancar/Destrancar chat
+  const setBloqueioChat = async (id, bloquear) => {
+    try {
+      const ref = doc(db, 'chats', id);
+      await updateDoc(ref, {
+        bloqueado: bloquear,
+        bloqueado_em: bloquear ? serverTimestamp() : null
+      });
+
+      if (id === chatId) setIsTestEnded(bloquear);
+      setHistoricoChats((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, bloqueado: bloquear } : c))
+      );
+    } catch (e) {
+      console.error('Erro ao atualizar bloqueio do chat:', e);
+    }
+  };
+
+  // ESC fecha modal
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') closeDeleteModal();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   // Scroll automático
   const scrollToBottom = () => {
     setTimeout(() => {
       const chatContainer = document.getElementById('chatContainer');
-      if (chatContainer) {
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-      }
+      if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
     }, 80);
   };
 
@@ -175,17 +220,13 @@ function Chat() {
     scrollToBottom();
   };
 
-  // Cálculo de progresso a partir da quantidade de respostas já dadas
   const calcularProgresso = (qtdRespostas) => {
     let restante = qtdRespostas;
     for (let i = 0; i < QUESTIONARIO.length; i++) {
       const n = QUESTIONARIO[i].perguntas.length;
-      if (restante < n) {
-        return { modo: 'questionario', etapaIndex: i, perguntaIndex: restante };
-      }
+      if (restante < n) return { modo: 'questionario', etapaIndex: i, perguntaIndex: restante };
       restante -= n;
     }
-    // Respondeu tudo → modo IA
     return {
       modo: 'ia',
       etapaIndex: QUESTIONARIO.length - 1,
@@ -193,7 +234,6 @@ function Chat() {
     };
   };
 
-  // Avanço questionário
   const proximaPergunta = async () => {
     const etapa = QUESTIONARIO[etapaIndex];
     const proxPergIndex = perguntaIndex + 1;
@@ -240,7 +280,7 @@ function Chat() {
     }
   };
 
-  // ---- Autenticação + carregar histórico + excluir chat vazio ----
+  // ---- Autenticação + histórico ----
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -262,7 +302,6 @@ function Chat() {
         for (const docSnap of querySnapshot.docs) {
           const dados = { id: docSnap.id, ...docSnap.data() };
 
-          // Verifica se o chat tem mensagens
           const msgsSnap = await getDocs(
             query(collection(db, 'chats', docSnap.id, 'mensagens'), orderBy('timestamp', 'asc'))
           );
@@ -273,7 +312,6 @@ function Chat() {
           }
         }
 
-        // ordena localmente (mais novo primeiro)
         lista.sort((a, b) => {
           const da = a?.criado_em?.toDate ? a.criado_em.toDate().getTime() : 0;
           const db_ = b?.criado_em?.toDate ? b.criado_em.toDate().getTime() : 0;
@@ -285,7 +323,6 @@ function Chat() {
         if (lista.length === 0) {
           await criarNovoChat(user.uid);
         } else if (!chatId) {
-          // opcional: seleciona o mais recente ao abrir
           await carregarChat(lista[0].id);
         }
       } catch (error) {
@@ -303,7 +340,9 @@ function Chat() {
       const chatRef = await addDoc(collection(db, 'chats'), {
         usuario_id: uid,
         criado_em: serverTimestamp(),
-        titulo: tituloPadrao
+        titulo: tituloPadrao,
+        bloqueado: false,
+        bloqueado_em: null
       });
 
       setChatId(chatRef.id);
@@ -321,7 +360,7 @@ function Chat() {
       setIsTestEnded(false);
 
       setHistoricoChats((prev) => [
-        { id: chatRef.id, usuario_id: uid, titulo: tituloPadrao, criado_em: { toDate: () => agora } },
+        { id: chatRef.id, usuario_id: uid, titulo: tituloPadrao, criado_em: { toDate: () => agora }, bloqueado: false },
         ...prev
       ]);
     } catch (error) {
@@ -332,7 +371,11 @@ function Chat() {
   const carregarChat = async (id) => {
     setChatId(id);
     try {
-      // Carrega mensagens
+      const chatDoc = await getDoc(doc(db, 'chats', id));
+      const chatData = chatDoc.exists() ? chatDoc.data() : {};
+      const bloqueado = !!chatData.bloqueado;
+      setIsTestEnded(bloqueado);
+
       const msgsSnap = await getDocs(
         query(collection(db, 'chats', id, 'mensagens'), orderBy('timestamp', 'asc'))
       );
@@ -342,29 +385,24 @@ function Chat() {
         return;
       }
 
-      const mensagens = msgsSnap.docs.map((doc) => {
-        const d = doc.data();
+      const mensagens = msgsSnap.docs.map((docu) => {
+        const d = docu.data();
         return { sender: d.tipo === 'pergunta' ? 'user' : 'bot', text: d.conteudo };
       });
       setMessages(mensagens);
 
-      // Carrega respostas do questionário
       const respSnap = await getDocs(
         query(collection(db, 'chats', id, 'respostas'), orderBy('timestamp', 'asc'))
       );
       const respostasDocs = respSnap.docs.map((d) => d.data());
       setRespostas(respostasDocs);
 
-      // Define progresso a partir da quantidade de respostas
       const prog = calcularProgresso(respostasDocs.length);
       setModo(prog.modo);
       setEtapaIndex(prog.etapaIndex);
       setPerguntaIndex(prog.perguntaIndex);
-      setIsTestEnded(false); // reabre sempre como ativo; será encerrado apenas por comando
 
-      // Se está em questionário e a última mensagem foi do usuário,
-      // significa que a próxima pergunta ainda não foi enviada → envia agora.
-      if (prog.modo === 'questionario') {
+      if (!bloqueado && prog.modo === 'questionario') {
         const etapa = QUESTIONARIO[prog.etapaIndex];
         const perguntaAtual = etapa.perguntas[prog.perguntaIndex];
         const last = mensagens[mensagens.length - 1];
@@ -416,8 +454,8 @@ function Chat() {
     }
 
     if (texto.toLowerCase() === 'encerrar teste') {
-      setIsTestEnded(true);
       await enqueueBot('Teste encerrado! Obrigado por participar. Você pode visualizar os resultados agora.');
+      await setBloqueioChat(chatId, true);
       return;
     }
 
@@ -428,7 +466,7 @@ function Chat() {
 
     if (data?.finalizado) {
       await enqueueBot(data.resposta || 'Teste encerrado. Obrigado por participar!');
-      setIsTestEnded(true);
+      await setBloqueioChat(chatId, true);
       return;
     }
     await enqueueBot(data?.resposta || 'Não consegui entender, pode reformular?');
@@ -457,13 +495,12 @@ function Chat() {
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Header />
 
-      {/* Header NÃO é fixo -> não usar padding grande aqui */}
       <main
         style={{
           flex: 1,
           display: 'flex',
           marginLeft: '250px',
-          paddingTop: '12px' // antes era `${HEADER_H}px` e sobrava espaço
+          paddingTop: '12px'
         }}
       >
         {/* Sidebar fixa */}
@@ -477,32 +514,44 @@ function Chat() {
               display: 'flex',
               flexDirection: 'column',
               gap: '10px',
-              height: `calc(100vh - ${HEADER_H}px)`, // ocupa o viewport inteiro, descontando o header
+              height: `calc(100vh - ${HEADER_H}px)`,
               position: 'fixed',
               left: 0,
-              top: `${HEADER_H}px`, // não fica por baixo do header
+              top: `${HEADER_H}px`,
               boxShadow: '2px 0 6px rgba(0,0,0,0.08)',
               overflowY: 'auto'
             }}
           >
-            <h6 className="fw-bold mb-3">Seus Chats</h6>
+            <h6 className="fw-bold mb-3">Meus Chats</h6>
 
             {historicoChats.map((c) => (
-              <div key={c.id} className="d-flex justify-content-between align-items-center">
+              <div key={c.id} className="d-flex align-items-center">
                 <button
                   className={`chat-btn ${c.id === chatId ? 'active' : ''}`}
                   onClick={() => carregarChat(c.id)}
                   title={tituloDoChat(c)}
+                  style={{ flex: 1 }}
                 >
                   {tituloDoChat(c)}
                 </button>
-                <button
-                  className="btn btn-sm btn-danger ms-2"
-                  onClick={() => excluirChat(c.id)}
-                  title="Excluir chat"
-                >
-                  <i className="bi bi-trash"></i>
-                </button>
+
+                <div className="d-flex align-items-center gap-2" style={{ marginLeft: "8px" }}>
+                  <button
+                    className={`btn btn-sm ${c.bloqueado ? 'btn-outline-secondary' : 'btn-outline-warning'}`}
+                    onClick={() => setBloqueioChat(c.id, !c.bloqueado)}
+                    title={c.bloqueado ? 'Destrancar chat' : 'Trancar chat'}
+                  >
+                    <i className={`bi ${c.bloqueado ? 'bi-unlock' : 'bi-lock'}`}></i>
+                  </button>
+
+                  <button
+                    className="btn btn-sm btn-danger"
+                    onClick={() => openDeleteModal(c.id, tituloDoChat(c))}
+                    title="Excluir chat"
+                  >
+                    <i className="bi bi-trash"></i>
+                  </button>
+                </div>
               </div>
             ))}
 
@@ -516,7 +565,7 @@ function Chat() {
         <div className="container py-4 flex-grow-1" style={{ paddingTop: '0px' }}>
           {!isUserLoggedIn && (
             <div className="alert alert-warning rounded-4 shadow-sm d-flex flex-column align-items-center text-center">
-              <div className="mb-2">⚠️ Você precisa estar logado para iniciar o teste vocacional.</div>
+              <div className="mb-2">Atenção: Você precisa estar logado para iniciar o teste vocacional.</div>
               <div className="d-flex gap-2">
                 <Link to="/login" className="btn btn-primary rounded-pill px-4">Fazer login</Link>
                 <Link to="/perfil" className="btn btn-outline-secondary rounded-pill px-4">Ir para o perfil</Link>
@@ -558,7 +607,7 @@ function Chat() {
             style={{
               backgroundColor: '#f9f9f9',
               borderRadius: '15px',
-              maxHeight: 'calc(100vh - 240px)', // subimos um pouco o conteúdo
+              maxHeight: 'calc(100vh - 240px)',
               overflowY: 'auto',
               scrollBehavior: 'smooth',
               display: 'flex',
@@ -614,12 +663,32 @@ function Chat() {
           </div>
 
           {isTestEnded && (
-            <div className="alert alert-success text-center mt-3">
-              <strong>Teste encerrado!</strong> Obrigado por participar. Você pode visualizar os resultados agora.
+            <div className="alert alert-success d-flex justify-content-between align-items-center mt-3">
+              <div>
+                <strong>Chat trancado!</strong> Este teste foi encerrado. Você pode visualizar os resultados.
+              </div>
+              <button
+                className="btn btn-outline-secondary btn-sm rounded-pill"
+                onClick={() => setBloqueioChat(chatId, false)}
+              >
+                <i className="bi bi-unlock me-1"></i> Destrancar
+              </button>
             </div>
           )}
 
-          <div className="d-flex mt-4">
+          {!isTestEnded && (
+            <div className="alert alert-light d-flex justify-content-end align-items-center mt-3 border">
+              <button
+                className="btn btn-outline-warning btn-sm rounded-pill"
+                onClick={() => setBloqueioChat(chatId, true)}
+                title="Trancar chat"
+              >
+                <i className="bi bi-lock me-1"></i> Trancar
+              </button>
+            </div>
+          )}
+
+          <div className="d-flex mt-3">
             <textarea
               ref={textareaRef}
               className="form-control rounded-pill px-4 text-start"
@@ -651,6 +720,48 @@ function Chat() {
           </div>
         </div>
       </main>
+
+      {/* ===== MODAL DE CONFIRMAÇÃO ===== */}
+      {confirmDelete.open && (
+        <div
+          className="vt-modal-backdrop"
+          onClick={closeDeleteModal}
+          role="presentation"
+          aria-hidden="true"
+        >
+          <div
+            className="vt-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="vt-modal-header d-flex align-items-center justify-content-between">
+              <span className="d-flex align-items-center gap-2">
+                <i className="bi bi-exclamation-triangle-fill"></i>
+                Confirmar exclusão
+              </span>
+              <button className="btn btn-sm btn-link text-white" onClick={closeDeleteModal} aria-label="Fechar">
+                <i className="bi bi-x-lg"></i>
+              </button>
+            </div>
+
+            <div className="vt-modal-body">
+              <p className="mb-1">Tem certeza que deseja excluir <strong>{confirmDelete.title}</strong>?</p>
+              <small className="opacity-75">Esta ação <u>não pode</u> ser desfeita.</small>
+            </div>
+
+            <div className="vt-modal-footer d-flex justify-content-end gap-2">
+              <button className="btn btn-outline-light rounded-pill px-4" onClick={closeDeleteModal}>
+                Cancelar
+              </button>
+              <button className="btn btn-danger rounded-pill px-4" onClick={confirmDeleteChat}>
+                <i className="bi bi-trash me-1"></i> Excluir definitivamente
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ===== FIM MODAL ===== */}
     </div>
   );
 }
