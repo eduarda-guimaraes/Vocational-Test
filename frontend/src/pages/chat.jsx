@@ -21,6 +21,8 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { Link } from 'react-router-dom';
 
+const HEADER_H = 72; // altura aproximada do header (nav). Ajuste p/ 64~80 se precisar.
+
 const QUESTIONARIO = [
   {
     etapa: 'ETAPA 1 – AUTOCONHECIMENTO',
@@ -92,6 +94,26 @@ function Chat() {
 
   const backendUrl = import.meta.env.VITE_API_URL;
 
+  // Helpers de data/título
+  const formatarDataCurta = (date) => {
+    try {
+      return new Intl.DateTimeFormat('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(date);
+    } catch {
+      return '';
+    }
+  };
+
+  const tituloDoChat = (c) => {
+    if (c?.titulo) return c.titulo;
+    const criado = c?.criado_em?.toDate ? c.criado_em.toDate() : null;
+    return criado ? `Chat ${formatarDataCurta(criado)}` : `Chat ${c.id?.slice(0, 5)}`;
+  };
+
   // ---- Firestore helpers ----
   const salvarMensagem = async (tipo, conteudo) => {
     try {
@@ -127,7 +149,7 @@ function Chat() {
       if (chatId === id) setChatId(null);
       console.log(`Chat ${id} excluído com sucesso.`);
     } catch (error) {
-      console.error("Erro ao excluir chat:", error);
+      console.error('Erro ao excluir chat:', error);
     }
   };
 
@@ -151,6 +173,24 @@ function Chat() {
     setMessages((prev) => [...prev, { sender: 'user', text }]);
     await salvarMensagem('pergunta', text);
     scrollToBottom();
+  };
+
+  // Cálculo de progresso a partir da quantidade de respostas já dadas
+  const calcularProgresso = (qtdRespostas) => {
+    let restante = qtdRespostas;
+    for (let i = 0; i < QUESTIONARIO.length; i++) {
+      const n = QUESTIONARIO[i].perguntas.length;
+      if (restante < n) {
+        return { modo: 'questionario', etapaIndex: i, perguntaIndex: restante };
+      }
+      restante -= n;
+    }
+    // Respondeu tudo → modo IA
+    return {
+      modo: 'ia',
+      etapaIndex: QUESTIONARIO.length - 1,
+      perguntaIndex: QUESTIONARIO[QUESTIONARIO.length - 1].perguntas.length - 1
+    };
   };
 
   // Avanço questionário
@@ -220,22 +260,33 @@ function Chat() {
 
         const lista = [];
         for (const docSnap of querySnapshot.docs) {
+          const dados = { id: docSnap.id, ...docSnap.data() };
+
           // Verifica se o chat tem mensagens
           const msgsSnap = await getDocs(
             query(collection(db, 'chats', docSnap.id, 'mensagens'), orderBy('timestamp', 'asc'))
           );
           if (msgsSnap.empty) {
-            // Chat vazio → excluir
             await excluirChat(docSnap.id);
           } else {
-            lista.push({ id: docSnap.id, ...docSnap.data() });
+            lista.push(dados);
           }
         }
+
+        // ordena localmente (mais novo primeiro)
+        lista.sort((a, b) => {
+          const da = a?.criado_em?.toDate ? a.criado_em.toDate().getTime() : 0;
+          const db_ = b?.criado_em?.toDate ? b.criado_em.toDate().getTime() : 0;
+          return db_ - da;
+        });
 
         setHistoricoChats(lista);
 
         if (lista.length === 0) {
           await criarNovoChat(user.uid);
+        } else if (!chatId) {
+          // opcional: seleciona o mais recente ao abrir
+          await carregarChat(lista[0].id);
         }
       } catch (error) {
         console.error('Erro ao buscar chats:', error);
@@ -243,21 +294,36 @@ function Chat() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, []); // eslint-disable-line
 
   const criarNovoChat = async (uid = userId) => {
     try {
+      const agora = new Date();
+      const tituloPadrao = `Chat ${formatarDataCurta(agora)}`;
       const chatRef = await addDoc(collection(db, 'chats'), {
         usuario_id: uid,
-        criado_em: serverTimestamp()
+        criado_em: serverTimestamp(),
+        titulo: tituloPadrao
       });
+
       setChatId(chatRef.id);
       setMessages([
         { sender: 'bot', text: 'Olá! Antes de usar a IA, vamos passar por um questionário rápido para entender melhor seu perfil. Tudo bem?' }
       ]);
+
       const primeira = QUESTIONARIO[0];
       enqueueBot(`${primeira.etapa}\n${primeira.objetivo}\n\n${primeira.perguntas[0]}`);
-      setHistoricoChats((prev) => [...prev, { id: chatRef.id }]);
+
+      setModo('questionario');
+      setEtapaIndex(0);
+      setPerguntaIndex(0);
+      setRespostas([]);
+      setIsTestEnded(false);
+
+      setHistoricoChats((prev) => [
+        { id: chatRef.id, usuario_id: uid, titulo: tituloPadrao, criado_em: { toDate: () => agora } },
+        ...prev
+      ]);
     } catch (error) {
       console.error('Erro ao criar chat:', error);
     }
@@ -266,6 +332,7 @@ function Chat() {
   const carregarChat = async (id) => {
     setChatId(id);
     try {
+      // Carrega mensagens
       const msgsSnap = await getDocs(
         query(collection(db, 'chats', id, 'mensagens'), orderBy('timestamp', 'asc'))
       );
@@ -280,8 +347,37 @@ function Chat() {
         return { sender: d.tipo === 'pergunta' ? 'user' : 'bot', text: d.conteudo };
       });
       setMessages(mensagens);
+
+      // Carrega respostas do questionário
+      const respSnap = await getDocs(
+        query(collection(db, 'chats', id, 'respostas'), orderBy('timestamp', 'asc'))
+      );
+      const respostasDocs = respSnap.docs.map((d) => d.data());
+      setRespostas(respostasDocs);
+
+      // Define progresso a partir da quantidade de respostas
+      const prog = calcularProgresso(respostasDocs.length);
+      setModo(prog.modo);
+      setEtapaIndex(prog.etapaIndex);
+      setPerguntaIndex(prog.perguntaIndex);
+      setIsTestEnded(false); // reabre sempre como ativo; será encerrado apenas por comando
+
+      // Se está em questionário e a última mensagem foi do usuário,
+      // significa que a próxima pergunta ainda não foi enviada → envia agora.
+      if (prog.modo === 'questionario') {
+        const etapa = QUESTIONARIO[prog.etapaIndex];
+        const perguntaAtual = etapa.perguntas[prog.perguntaIndex];
+        const last = mensagens[mensagens.length - 1];
+        if (!last || last.sender === 'user') {
+          await enqueueBot(
+            prog.perguntaIndex === 0
+              ? `${etapa.etapa}\n${etapa.objetivo}\n\n${perguntaAtual}`
+              : perguntaAtual
+          );
+        }
+      }
     } catch (e) {
-      console.error('Erro ao carregar mensagens:', e);
+      console.error('Erro ao carregar chat:', e);
     }
   };
 
@@ -361,7 +457,12 @@ function Chat() {
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Header />
 
-      <main style={{ flex: 1, display: 'flex' }}>
+    <main style={{ 
+      flex: 1, 
+      display: 'flex', 
+      marginLeft: '250px',
+      paddingTop: `${HEADER_H}px`   // garante espaço abaixo do header
+    }}>
         {/* Sidebar fixa */}
         {isUserLoggedIn && (
           <aside
@@ -372,26 +473,38 @@ function Chat() {
               padding: '20px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '10px'
+              gap: '10px',
+              height: `calc(100vh - ${HEADER_H}px)`, // ↓ não vai passar por baixo do header
+              position: 'fixed',
+              left: 0,
+              top: `${HEADER_H}px`,                  // ↓ descola do header
+              boxShadow: '2px 0 6px rgba(0,0,0,0.08)',
+              overflowY: 'auto'
             }}
           >
+
+
             <h6 className="fw-bold mb-3">Seus Chats</h6>
+
             {historicoChats.map((c) => (
               <div key={c.id} className="d-flex justify-content-between align-items-center">
                 <button
                   className={`chat-btn ${c.id === chatId ? 'active' : ''}`}
                   onClick={() => carregarChat(c.id)}
+                  title={tituloDoChat(c)}
                 >
-                  Chat {c.id.slice(0, 5)}
+                  {tituloDoChat(c)}
                 </button>
                 <button
                   className="btn btn-sm btn-danger ms-2"
                   onClick={() => excluirChat(c.id)}
+                  title="Excluir chat"
                 >
                   <i className="bi bi-trash"></i>
                 </button>
               </div>
             ))}
+
             <button className="chat-btn novo" onClick={() => criarNovoChat()}>
               + Novo Chat
             </button>
@@ -399,12 +512,10 @@ function Chat() {
         )}
 
         {/* Área principal do chat */}
-        <div className="container py-4 flex-grow-1" style={{ paddingTop: '30px' }}>
+        <div className="container py-4 flex-grow-1" style={{ paddingTop: '1px' }}>
           {!isUserLoggedIn && (
             <div className="alert alert-warning rounded-4 shadow-sm d-flex flex-column align-items-center text-center">
-              <div className="mb-2">
-                ⚠️ Você precisa estar logado para iniciar o teste vocacional.
-              </div>
+              <div className="mb-2">⚠️ Você precisa estar logado para iniciar o teste vocacional.</div>
               <div className="d-flex gap-2">
                 <Link to="/login" className="btn btn-primary rounded-pill px-4">Fazer login</Link>
                 <Link to="/perfil" className="btn btn-outline-secondary rounded-pill px-4">Ir para o perfil</Link>
@@ -412,10 +523,17 @@ function Chat() {
             </div>
           )}
 
+          {/* Aviso/guia — jogado mais para baixo para não colar na header */}
           <div
             className="alert text-center rounded-4 shadow-sm p-4"
-            style={{ backgroundColor: '#e3f2fd', color: '#0d47a1' }}
+            style={{
+              backgroundColor: '#e3f2fd',
+              color: '#0d47a1',
+              marginTop: '1px',     // era 40px
+              marginBottom: '2px'
+            }}
           >
+
             <h5 className="mb-2 fw-bold">Como funciona o teste vocacional?</h5>
             <p className="mb-0">
               {emQuestionario ? (
@@ -434,17 +552,17 @@ function Chat() {
             </p>
           </div>
 
+          {/* Caixa do chat */}
           <div
-            className="chat-box p-3 mt-4"
+            className="chat-box p-3"
             style={{
               backgroundColor: '#f9f9f9',
               borderRadius: '15px',
-              maxHeight: '65vh',
+              maxHeight: 'calc(100vh - 300px)',
               overflowY: 'auto',
               scrollBehavior: 'smooth',
               display: 'flex',
-              flexDirection: 'column',
-              paddingRight: '1000px',
+              flexDirection: 'column'
             }}
             id="chatContainer"
           >
@@ -476,4 +594,65 @@ function Chat() {
                       margin: 'auto'
                     }}
                   />
-                  </div> <div style={{ backgroundColor: msg.sender === 'user' ? '#bbdefb' : '#cfd8dc', whiteSpace: 'pre-wrap', padding: '15px', borderRadius: '20px', maxWidth: '75%', boxShadow: '0px 2px 4px rgba(0,0,0,0.1)', fontStyle: 'italic' }} > {msg.text} </div> </div> ))} </div> {isTestEnded && ( <div className="alert alert-success text-center mt-3"> <strong>Teste encerrado!</strong> Obrigado por participar. Você pode visualizar os resultados agora. </div> )} <div className="d-flex mt-4"> <textarea ref={textareaRef} className="form-control rounded-pill px-4 text-start" placeholder={emQuestionario ? 'Responda à pergunta...' : 'Digite algo...'} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyPress} onInput={handleInput} disabled={!chatId || loading || !isUserLoggedIn || isTestEnded} rows={1} style={{ border: '1px solid #ccc', marginRight: '10px', resize: 'none', minHeight: '50px', height: '${textareaHeight}px', paddingTop: '10px', paddingBottom: '10px', paddingLeft: '12px' }} /> <button className="btn btn-primary rounded-pill px-4" onClick={handleSend} disabled={!chatId || loading || !isUserLoggedIn || isTestEnded} > {loading ? 'Enviando...' : 'Enviar'} </button> </div> </div> </main> </div> ); } export default Chat;
+                </div>
+
+                <div
+                  style={{
+                    backgroundColor: msg.sender === 'user' ? '#bbdefb' : '#cfd8dc',
+                    whiteSpace: 'pre-wrap',
+                    padding: '15px',
+                    borderRadius: '20px',
+                    maxWidth: '75%',
+                    boxShadow: '0px 2px 4px rgba(0,0,0,0.1)',
+                    fontStyle: 'italic'
+                  }}
+                >
+                  {msg.text}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {isTestEnded && (
+            <div className="alert alert-success text-center mt-3">
+              <strong>Teste encerrado!</strong> Obrigado por participar. Você pode visualizar os resultados agora.
+            </div>
+          )}
+
+          <div className="d-flex mt-4">
+            <textarea
+              ref={textareaRef}
+              className="form-control rounded-pill px-4 text-start"
+              placeholder={emQuestionario ? 'Responda à pergunta...' : 'Digite algo...'}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyPress}
+              onInput={handleInput}
+              disabled={!chatId || loading || !isUserLoggedIn || isTestEnded}
+              rows={1}
+              style={{
+                border: '1px solid #ccc',
+                marginRight: '10px',
+                resize: 'none',
+                minHeight: '50px',
+                height: `${textareaHeight}px`,
+                paddingTop: '10px',
+                paddingBottom: '10px',
+                paddingLeft: '12px'
+              }}
+            />
+            <button
+              className="btn btn-primary rounded-pill px-4"
+              onClick={handleSend}
+              disabled={!chatId || loading || !isUserLoggedIn || isTestEnded}
+            >
+              {loading ? 'Enviando...' : 'Enviar'}
+            </button>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+export default Chat;

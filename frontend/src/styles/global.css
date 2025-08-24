@@ -212,28 +212,41 @@ html, body, #root {
   height: 100%;
 }
 
+/* Botões da sidebar */
 .chat-btn {
   background: transparent;
   border: 2px solid #447EB8;
   color: #447EB8;
   border-radius: 20px;
-  padding: 8px 14px;
+  padding: 10px 16px;
   text-align: left;
   font-size: 14px;
-  transition: all 0.2s ease;
+  font-weight: 500;
+  transition: all 0.25s ease;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .chat-btn:hover {
   background-color: #447EB8;
   color: #fff;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+  transform: translateY(-1px);
 }
 
 .chat-btn.active {
   background-color: #447EB8;
   color: #fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
 .chat-btn.novo {
   border-style: dashed;
   font-weight: bold;
+  background: #fafafa;
+}
+
+.chat-btn.novo:hover {
+  background: #447EB8;
+  color: #fff;
 }
