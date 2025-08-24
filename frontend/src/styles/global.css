@@ -211,3 +211,29 @@ html, body, #root {
   padding: 0;
   height: 100%;
 }
+
+.chat-btn {
+  background: transparent;
+  border: 2px solid #447EB8;
+  color: #447EB8;
+  border-radius: 20px;
+  padding: 8px 14px;
+  text-align: left;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.chat-btn:hover {
+  background-color: #447EB8;
+  color: #fff;
+}
+
+.chat-btn.active {
+  background-color: #447EB8;
+  color: #fff;
+}
+
+.chat-btn.novo {
+  border-style: dashed;
+  font-weight: bold;
+}

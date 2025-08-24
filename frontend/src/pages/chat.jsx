@@ -7,7 +7,17 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 
 import { auth, db } from '../services/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  query,
+  where,
+  getDocs,
+  orderBy,
+  deleteDoc,
+  doc
+} from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Link } from 'react-router-dom';
 
@@ -66,27 +76,28 @@ function Chat() {
   const [userId, setUserId] = useState(null);
   const [userPhoto, setUserPhoto] = useState('/iconevazio.png');
   const [isUserLoggedIn, setIsUserLoggedIn] = useState(true);
+  const [historicoChats, setHistoricoChats] = useState([]);
 
   // Fluxo do questionário/IA
-  const [modo, setModo] = useState('questionario'); // 'questionario' | 'ia'
+  const [modo, setModo] = useState('questionario');
   const [etapaIndex, setEtapaIndex] = useState(0);
   const [perguntaIndex, setPerguntaIndex] = useState(0);
-  const [respostas, setRespostas] = useState([]); // [{ etapa, pergunta, resposta }]
+  const [respostas, setRespostas] = useState([]);
   const [isTestEnded, setIsTestEnded] = useState(false);
-  const [respostasAnterioresIA, setRespostasAnterioresIA] = useState([]); // histórico apenas do modo IA
+  const [respostasAnterioresIA, setRespostasAnterioresIA] = useState([]);
 
-  // Layout (textarea auto-altura)
+  // Layout
   const textareaRef = useRef(null);
   const [textareaHeight, setTextareaHeight] = useState(50);
 
   const backendUrl = import.meta.env.VITE_API_URL;
 
-  // Helpers Firestore
+  // ---- Firestore helpers ----
   const salvarMensagem = async (tipo, conteudo) => {
     try {
       if (!chatId) return;
       await addDoc(collection(db, 'chats', chatId, 'mensagens'), {
-        tipo, // 'pergunta' (user) | 'resposta' (bot)
+        tipo,
         conteudo,
         timestamp: serverTimestamp()
       });
@@ -109,7 +120,18 @@ function Chat() {
     }
   };
 
-  // Scroll automático para o fim
+  const excluirChat = async (id) => {
+    try {
+      await deleteDoc(doc(db, 'chats', id));
+      setHistoricoChats((prev) => prev.filter((c) => c.id !== id));
+      if (chatId === id) setChatId(null);
+      console.log(`Chat ${id} excluído com sucesso.`);
+    } catch (error) {
+      console.error("Erro ao excluir chat:", error);
+    }
+  };
+
+  // Scroll automático
   const scrollToBottom = () => {
     setTimeout(() => {
       const chatContainer = document.getElementById('chatContainer');
@@ -131,6 +153,7 @@ function Chat() {
     scrollToBottom();
   };
 
+  // Avanço questionário
   const proximaPergunta = async () => {
     const etapa = QUESTIONARIO[etapaIndex];
     const proxPergIndex = perguntaIndex + 1;
@@ -141,7 +164,6 @@ function Chat() {
       return;
     }
 
-    // Avança etapa
     const proxEtapaIndex = etapaIndex + 1;
     if (proxEtapaIndex < QUESTIONARIO.length) {
       setEtapaIndex(proxEtapaIndex);
@@ -151,34 +173,23 @@ function Chat() {
       return;
     }
 
-    // Finalizou questionário → chama análise
     await finalizarQuestionario();
   };
 
   const finalizarQuestionario = async () => {
     setLoading(true);
-    
-    // Mensagem enquanto aguarda a análise
     await enqueueBot('Espere uns minutos, a análise está sendo feita...');
-    
     try {
       const resp = await fetch(`${backendUrl}/api/analise-perfil`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chat_id: chatId, respostas })
       });
-
       const data = await resp.json();
-
-      // Salvando a resposta da IA no histórico
       await enqueueBot(
         `ETAPA 5 – SUGESTÕES E ANÁLISE DO PERFIL\n\n${data?.analise || 'Análise indisponível no momento.'}`
       );
-
-      // Salvando a resposta no Firestore
       await salvarMensagem('resumo_final', data?.analise || 'Análise indisponível no momento.');
-
-      // Entra em modo IA livre
       setModo('ia');
       await enqueueBot('Agora você pode conversar livremente comigo. Para encerrar, digite "encerrar teste".');
     } catch (e) {
@@ -189,9 +200,7 @@ function Chat() {
     }
   };
 
-
-
-  // Autenticação e criação do chat
+  // ---- Autenticação + carregar histórico + excluir chat vazio ----
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -205,26 +214,76 @@ function Chat() {
       setUserId(user.uid);
       setUserPhoto(user.photoURL || '/iconevazio.png');
 
-      if (!chatId) {
-        try {
-          const chatRef = await addDoc(collection(db, 'chats'), {
-            usuario_id: user.uid,
-            criado_em: serverTimestamp()
-          });
-          setChatId(chatRef.id);
+      try {
+        const q = query(collection(db, 'chats'), where('usuario_id', '==', user.uid));
+        const querySnapshot = await getDocs(q);
 
-          // Primeira pergunta do questionário
-          const primeira = QUESTIONARIO[0];
-          enqueueBot(`${primeira.etapa}\n${primeira.objetivo}\n\n${primeira.perguntas[0]}`);
-        } catch (error) {
-          console.error('Erro ao criar chat no Firestore:', error);
-          alert('Erro ao iniciar o chat. Tente novamente.');
+        const lista = [];
+        for (const docSnap of querySnapshot.docs) {
+          // Verifica se o chat tem mensagens
+          const msgsSnap = await getDocs(
+            query(collection(db, 'chats', docSnap.id, 'mensagens'), orderBy('timestamp', 'asc'))
+          );
+          if (msgsSnap.empty) {
+            // Chat vazio → excluir
+            await excluirChat(docSnap.id);
+          } else {
+            lista.push({ id: docSnap.id, ...docSnap.data() });
+          }
         }
+
+        setHistoricoChats(lista);
+
+        if (lista.length === 0) {
+          await criarNovoChat(user.uid);
+        }
+      } catch (error) {
+        console.error('Erro ao buscar chats:', error);
       }
     });
 
     return () => unsubscribe();
-  }, [chatId]);
+  }, []);
+
+  const criarNovoChat = async (uid = userId) => {
+    try {
+      const chatRef = await addDoc(collection(db, 'chats'), {
+        usuario_id: uid,
+        criado_em: serverTimestamp()
+      });
+      setChatId(chatRef.id);
+      setMessages([
+        { sender: 'bot', text: 'Olá! Antes de usar a IA, vamos passar por um questionário rápido para entender melhor seu perfil. Tudo bem?' }
+      ]);
+      const primeira = QUESTIONARIO[0];
+      enqueueBot(`${primeira.etapa}\n${primeira.objetivo}\n\n${primeira.perguntas[0]}`);
+      setHistoricoChats((prev) => [...prev, { id: chatRef.id }]);
+    } catch (error) {
+      console.error('Erro ao criar chat:', error);
+    }
+  };
+
+  const carregarChat = async (id) => {
+    setChatId(id);
+    try {
+      const msgsSnap = await getDocs(
+        query(collection(db, 'chats', id, 'mensagens'), orderBy('timestamp', 'asc'))
+      );
+
+      if (msgsSnap.empty) {
+        await excluirChat(id);
+        return;
+      }
+
+      const mensagens = msgsSnap.docs.map((doc) => {
+        const d = doc.data();
+        return { sender: d.tipo === 'pergunta' ? 'user' : 'bot', text: d.conteudo };
+      });
+      setMessages(mensagens);
+    } catch (e) {
+      console.error('Erro ao carregar mensagens:', e);
+    }
+  };
 
   const enviarParaIA = async (mensagem) => {
     try {
@@ -244,30 +303,22 @@ function Chat() {
     }
   };
 
-
   const handleSend = async () => {
     if (!input.trim() || !chatId || !isUserLoggedIn || isTestEnded) return;
-
     const texto = input.trim();
-
     await enqueueUser(texto);
     setInput('');
 
-    // Questionário
     if (modo === 'questionario') {
       const etapaAtual = QUESTIONARIO[etapaIndex];
       const perguntaAtual = etapaAtual.perguntas[perguntaIndex];
-
       const registro = { etapa: etapaAtual.etapa, pergunta: perguntaAtual, resposta: texto };
       setRespostas((prev) => [...prev, registro]);
       await salvarRespostaQuestionario(registro);
-
       await proximaPergunta();
       return;
     }
 
-    // Modo IA livre
-    // Comando manual de encerramento:
     if (texto.toLowerCase() === 'encerrar teste') {
       setIsTestEnded(true);
       await enqueueBot('Teste encerrado! Obrigado por participar. Você pode visualizar os resultados agora.');
@@ -277,19 +328,14 @@ function Chat() {
     setLoading(true);
     const data = await enviarParaIA(texto);
     setLoading(false);
-
-    // Guarda histórico sucinto de respostas anteriores para o backend (apenas as do usuário no modo IA)
     setRespostasAnterioresIA((prev) => [...prev, texto].slice(-10));
 
-    // Backend pode sinalizar finalização
     if (data?.finalizado) {
       await enqueueBot(data.resposta || 'Teste encerrado. Obrigado por participar!');
       setIsTestEnded(true);
       return;
     }
-
-    const respostaIA = data?.resposta || 'Não consegui entender, pode reformular?';
-    await enqueueBot(respostaIA);
+    await enqueueBot(data?.resposta || 'Não consegui entender, pode reformular?');
   };
 
   const handleKeyPress = (e) => {
@@ -301,14 +347,12 @@ function Chat() {
 
   const handleInput = () => {
     if (textareaRef.current) {
-      // Ajuste suave de altura (limite opcional para não crescer demais)
       textareaRef.current.style.height = 'auto';
       const next = Math.min(textareaRef.current.scrollHeight, 160);
       setTextareaHeight(Math.max(next, 50));
     }
   };
 
-  // Progresso do questionário
   const totalPerguntas = QUESTIONARIO.reduce((acc, cur) => acc + cur.perguntas.length, 0);
   const respondidas = respostas.length;
   const emQuestionario = (modo === 'questionario');
@@ -317,9 +361,45 @@ function Chat() {
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Header />
 
-      <main style={{ flex: 1, minHeight: 'calc(100vh - 90px)' }}>
-        <div className="container py-4" style={{ paddingTop: '30px' }}>
-          {/* Aviso login */}
+      <main style={{ flex: 1, display: 'flex' }}>
+        {/* Sidebar fixa */}
+        {isUserLoggedIn && (
+          <aside
+            style={{
+              width: '250px',
+              backgroundColor: '#f5f5f5',
+              borderRight: '1px solid #ddd',
+              padding: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}
+          >
+            <h6 className="fw-bold mb-3">Seus Chats</h6>
+            {historicoChats.map((c) => (
+              <div key={c.id} className="d-flex justify-content-between align-items-center">
+                <button
+                  className={`chat-btn ${c.id === chatId ? 'active' : ''}`}
+                  onClick={() => carregarChat(c.id)}
+                >
+                  Chat {c.id.slice(0, 5)}
+                </button>
+                <button
+                  className="btn btn-sm btn-danger ms-2"
+                  onClick={() => excluirChat(c.id)}
+                >
+                  <i className="bi bi-trash"></i>
+                </button>
+              </div>
+            ))}
+            <button className="chat-btn novo" onClick={() => criarNovoChat()}>
+              + Novo Chat
+            </button>
+          </aside>
+        )}
+
+        {/* Área principal do chat */}
+        <div className="container py-4 flex-grow-1" style={{ paddingTop: '30px' }}>
           {!isUserLoggedIn && (
             <div className="alert alert-warning rounded-4 shadow-sm d-flex flex-column align-items-center text-center">
               <div className="mb-2">
@@ -340,15 +420,13 @@ function Chat() {
             <p className="mb-0">
               {emQuestionario ? (
                 <>
-                  Primeiro, você responde um questionário estruturado. Em seguida, a IA analisa seu perfil e oferece
-                  sugestões de carreiras.
+                  Primeiro, você responde um questionário estruturado. Em seguida, a IA analisa seu perfil e oferece sugestões de carreiras.
                   <br />
                   <strong>Progresso:</strong> {respondidas}/{totalPerguntas}
                 </>
               ) : (
                 <>
-                  Converse com nosso assistente sobre seus interesses. A inteligência artificial analisará suas respostas
-                  e recomendará áreas profissionais ideais para você.
+                  Converse com nosso assistente sobre seus interesses. A inteligência artificial analisará suas respostas e recomendará áreas profissionais ideais para você.
                   <br />
                   <strong>Dica:</strong> você pode digitar <strong>"encerrar teste"</strong> a qualquer momento para terminar e ver o resultado.
                 </>
@@ -398,64 +476,4 @@ function Chat() {
                       margin: 'auto'
                     }}
                   />
-                </div>
-                <div
-                  style={{
-                    backgroundColor: msg.sender === 'user' ? '#bbdefb' : '#cfd8dc',
-                    whiteSpace: 'pre-wrap',
-                    padding: '15px',
-                    borderRadius: '20px',
-                    maxWidth: '75%',
-                    boxShadow: '0px 2px 4px rgba(0,0,0,0.1)',
-                    fontStyle: 'italic'
-                  }}
-                >
-                  {msg.text}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {isTestEnded && (
-            <div className="alert alert-success text-center mt-3">
-              <strong>Teste encerrado!</strong> Obrigado por participar. Você pode visualizar os resultados agora.
-            </div>
-          )}
-
-          <div className="d-flex mt-4">
-            <textarea
-              ref={textareaRef}
-              className="form-control rounded-pill px-4 text-start"
-              placeholder={emQuestionario ? 'Responda à pergunta...' : 'Digite algo...'}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyPress}
-              onInput={handleInput}
-              disabled={!chatId || loading || !isUserLoggedIn || isTestEnded}
-              rows={1}
-              style={{
-                border: '1px solid #ccc',
-                marginRight: '10px',
-                resize: 'none',
-                minHeight: '50px',
-                height: `${textareaHeight}px`,
-                paddingTop: '10px',
-                paddingBottom: '10px',
-                paddingLeft: '12px'
-              }}
-            />
-            <button
-              className="btn btn-primary rounded-pill px-4"
-              onClick={handleSend}
-              disabled={!chatId || loading || !isUserLoggedIn || isTestEnded}
-            >
-              {loading ? 'Enviando...' : 'Enviar'}
-            </button>
-          </div>
-        </div>
-      </main>
-    </div>
-  );
-}
-
-export default Chat;
+                  </div> <div style={{ backgroundColor: msg.sender === 'user' ? '#bbdefb' : '#cfd8dc', whiteSpace: 'pre-wrap', padding: '15px', borderRadius: '20px', maxWidth: '75%', boxShadow: '0px 2px 4px rgba(0,0,0,0.1)', fontStyle: 'italic' }} > {msg.text} </div> </div> ))} </div> {isTestEnded && ( <div className="alert alert-success text-center mt-3"> <strong>Teste encerrado!</strong> Obrigado por participar. Você pode visualizar os resultados agora. </div> )} <div className="d-flex mt-4"> <textarea ref={textareaRef} className="form-control rounded-pill px-4 text-start" placeholder={emQuestionario ? 'Responda à pergunta...' : 'Digite algo...'} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyPress} onInput={handleInput} disabled={!chatId || loading || !isUserLoggedIn || isTestEnded} rows={1} style={{ border: '1px solid #ccc', marginRight: '10px', resize: 'none', minHeight: '50px', height: '${textareaHeight}px', paddingTop: '10px', paddingBottom: '10px', paddingLeft: '12px' }} /> <button className="btn btn-primary rounded-pill px-4" onClick={handleSend} disabled={!chatId || loading || !isUserLoggedIn || isTestEnded} > {loading ? 'Enviando...' : 'Enviar'} </button> </div> </div> </main> </div> ); } export default Chat;
