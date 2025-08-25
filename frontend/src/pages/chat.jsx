@@ -1,4 +1,3 @@
-// src/pages/chat.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import Header from '../components/header';
 import '../styles/global.css';
@@ -87,7 +86,7 @@ function Chat() {
   const [etapaIndex, setEtapaIndex] = useState(0);
   const [perguntaIndex, setPerguntaIndex] = useState(0);
   const [respostas, setRespostas] = useState([]);
-  const [isTestEnded, setIsTestEnded] = useState(false); // espelha "bloqueado"
+  const [isTestEnded, setIsTestEnded] = useState(false);
   const [respostasAnterioresIA, setRespostasAnterioresIA] = useState([]);
 
   // Layout
@@ -100,6 +99,21 @@ function Chat() {
     chatId: null,
     title: ''
   });
+
+  // RESPONSIVO: controlar abertura da sidebar
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 992 : false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 992);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const toggleSidebar = () => setSidebarOpen((v) => !v);
+
+  // Altura fixa da janela do chat (com rolagem interna)
+  const chatBoxHeight = isMobile ? '56vh' : '62vh';
 
   const backendUrl = import.meta.env.VITE_API_URL;
 
@@ -419,6 +433,12 @@ function Chat() {
     }
   };
 
+  // carregar chat e fechar drawer no mobile
+  const carregarChatMobile = async (id) => {
+    await carregarChat(id);
+    if (isMobile) setSidebarOpen(false);
+  };
+
   const enviarParaIA = async (mensagem) => {
     try {
       const response = await fetch(`${backendUrl}/api/chat-vocacional`, {
@@ -499,27 +519,30 @@ function Chat() {
         style={{
           flex: 1,
           display: 'flex',
-          marginLeft: '250px',
+          marginLeft: isMobile ? 0 : '250px',
           paddingTop: '12px'
         }}
       >
-        {/* Sidebar fixa */}
+        {/* Sidebar fixa / Drawer responsivo */}
         {isUserLoggedIn && (
           <aside
             style={{
-              width: '250px',
+              width: isMobile ? '85vw' : '250px',
+              maxWidth: isMobile ? 340 : 'auto',
               backgroundColor: '#f5f5f5',
-              borderRight: '1px solid #ddd',
+              borderRight: isMobile ? 'none' : '1px solid #ddd',
               padding: '20px',
               display: 'flex',
               flexDirection: 'column',
               gap: '10px',
-              height: `calc(100vh - ${HEADER_H}px)`,
+              height: isMobile ? '100vh' : `calc(100vh - ${HEADER_H}px)`,
               position: 'fixed',
-              left: 0,
-              top: `${HEADER_H}px`,
-              boxShadow: '2px 0 6px rgba(0,0,0,0.08)',
-              overflowY: 'auto'
+              left: isMobile ? (sidebarOpen ? 0 : '-110%') : 0,
+              top: isMobile ? 0 : `${HEADER_H}px`,
+              boxShadow: isMobile ? '0 8px 28px rgba(0,0,0,.25)' : '2px 0 6px rgba(0,0,0,0.08)',
+              overflowY: 'auto',
+              transition: 'left .25s ease',
+              zIndex: 1085
             }}
           >
             <h6 className="fw-bold mb-3">Meus Chats</h6>
@@ -528,14 +551,14 @@ function Chat() {
               <div key={c.id} className="d-flex align-items-center">
                 <button
                   className={`chat-btn ${c.id === chatId ? 'active' : ''}`}
-                  onClick={() => carregarChat(c.id)}
+                  onClick={() => carregarChatMobile(c.id)}
                   title={tituloDoChat(c)}
                   style={{ flex: 1 }}
                 >
                   {tituloDoChat(c)}
                 </button>
 
-                <div className="d-flex align-items-center gap-2" style={{ marginLeft: "8px" }}>
+                <div className="d-flex align-items-center gap-2" style={{ marginLeft: '8px' }}>
                   <button
                     className={`btn btn-sm ${c.bloqueado ? 'btn-outline-secondary' : 'btn-outline-warning'}`}
                     onClick={() => setBloqueioChat(c.id, !c.bloqueado)}
@@ -561,8 +584,39 @@ function Chat() {
           </aside>
         )}
 
+        {/* Overlay/backdrop quando o drawer está aberto no mobile */}
+        {isMobile && sidebarOpen && (
+          <div
+            className="drawer-backdrop"
+            onClick={toggleSidebar}
+            aria-hidden="true"
+            style={{ zIndex: 1080 }}
+          />
+        )}
+
         {/* Área principal do chat */}
-        <div className="container py-4 flex-grow-1" style={{ paddingTop: '0px' }}>
+        <div
+          className="container py-4 flex-grow-1 chat-container"
+          style={{
+            paddingTop: '0px',
+            minHeight: `calc(100vh - ${HEADER_H}px)`,
+            display: 'flex',
+            flexDirection: 'column'
+          }}
+        >
+          {/* Barra superior no mobile (botão para abrir a lista) */}
+          {isMobile && (
+            <div className="mobile-toolbar d-flex align-items-center gap-2 mb-3">
+              <button
+                className="btn btn-outline-primary rounded-pill btn-sm mobile-chats-btn"
+                onClick={toggleSidebar}
+                aria-label="Abrir lista de chats"
+              >
+                <i className="bi bi-list me-1"></i> Chats
+              </button>
+            </div>
+          )}
+
           {!isUserLoggedIn && (
             <div className="alert alert-warning rounded-4 shadow-sm d-flex flex-column align-items-center text-center">
               <div className="mb-2">Atenção: Você precisa estar logado para iniciar o teste vocacional.</div>
@@ -601,14 +655,17 @@ function Chat() {
             </p>
           </div>
 
-          {/* Caixa do chat */}
+          {/* Caixa do chat (altura fixa + rolagem interna) */}
           <div
             className="chat-box p-3"
             style={{
               backgroundColor: '#f9f9f9',
               borderRadius: '15px',
-              maxHeight: 'calc(100vh - 240px)',
+              flex: '0 0 auto',
+              height: chatBoxHeight,
+              maxHeight: chatBoxHeight,
               overflowY: 'auto',
+              overflowX: 'hidden',
               scrollBehavior: 'smooth',
               display: 'flex',
               flexDirection: 'column'
@@ -725,6 +782,7 @@ function Chat() {
       {confirmDelete.open && (
         <div
           className="vt-modal-backdrop"
+          style={{ zIndex: 3000 }}   /* garante acima do drawer */
           onClick={closeDeleteModal}
           role="presentation"
           aria-hidden="true"

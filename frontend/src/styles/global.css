@@ -1,28 +1,28 @@
-/* Reset global */
-* {
-  padding: 0;
-  margin: 0;
-  box-sizing: border-box;
-}
+/* =======================
+   Reset & Paleta
+   ======================= */
+* { padding: 0; margin: 0; box-sizing: border-box; }
 
-/* Paleta (fácil de alterar depois) */
 :root{
-  --brand-blue:   #447EB8;   /* azul existente, mantém onde já usa */
-  --brand-purple: #9068ba;   /* roxo novo */
-  --brand-yellow: #d4a017;   /* amarelo queimado */
+  --brand-blue:   #447EB8;   /* azul do header e acentos */
+  --brand-purple: #9068ba;   /* roxo dos botões de chat */
+  --brand-yellow: #d4a017;   /* amarelo queimado do cadeado */
+  --brand-primary:#20639b;   /* azul do botão Enviar e botão Chats */
+  --header-h: 72px;          /* altura do header para sticky no mobile */
 }
 
-/* Espaçamento do header */
+/* Espaçamento utilitário se precisar empurrar conteúdo */
 .header-spacing { margin-top: 130px; }
 
-/* Navbar */
+/* =======================
+   Header (recuperado)
+   ======================= */
 .navbar {
   z-index: 1030;
   background-color: #ffffff !important;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* Link da navbar */
 .nav-link {
   position: relative;
   text-decoration: none;
@@ -39,7 +39,8 @@
   transition: width 0.3s ease;
 }
 .nav-link:hover { color: var(--brand-blue); }
-.nav-link:hover::after, .nav-link.active::after { width: 100%; }
+.nav-link:hover::after,
+.nav-link.active::after { width: 100%; }
 .nav-link.active { color: var(--brand-blue); font-weight: 500; }
 
 /* Botão "Iniciar Teste" */
@@ -67,10 +68,11 @@
 .nav-perfil:hover { color: inherit !important; }
 .nav-perfil:hover .bi-person { color: var(--brand-blue); }
 
-/* Texto justificado */
+/* =======================
+   Tipografia & cartões
+   ======================= */
 .text-justified { text-align: justify; text-indent: 2em; hyphens: auto; }
 
-/* Título principal */
 .titulo-principal {
   font-size: 2.2rem; text-align: center; font-weight: bold;
   line-height: 1.2; margin-bottom: 1rem; max-width: 90%;
@@ -95,9 +97,7 @@
 
 /* Card body */
 .card-body { padding: 1rem; }
-.card-body p {
-  text-align: center; font-size: 1rem; margin-top: 0.5rem; max-width: 85%;
-}
+.card-body p { text-align: center; font-size: 1rem; margin-top: 0.5rem; max-width: 85%; }
 
 /* Card azul com info */
 .card-info {
@@ -105,16 +105,38 @@
   border-radius: 1rem; border: none; height: 100%; padding: 2rem;
   display: flex; flex-direction: column; justify-content: flex-start;
   text-align: center; transition: transform 0.3s ease, box-shadow 0.3s ease;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
 }
-.card-info:hover { transform: translateY(-5px); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1); }
+.card-info:hover { transform: translateY(-5px); box-shadow: 0 12px 30px rgba(0,0,0,0.1); }
 .card-info h5 { color: var(--brand-blue); font-weight: bold; margin-bottom: 1rem; }
 .card-info p { color: #333; margin: 0; font-size: 1rem; line-height: 1.5; flex-grow: 1; }
 
+/* Alturas base */
 html, body, #root { margin: 0; padding: 0; height: 100%; }
+html, body { overflow-x: hidden; }
 
-/* === Botões da sidebar (agora roxos) === */
-.chat-btn {
+/* =======================
+   Layout do Chat (ESCOPO!)
+   ======================= */
+/* -> aplicado somente quando o container tiver a classe "chat-container" */
+.chat-container{
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - var(--header-h));
+}
+.chat-container .chat-box{
+  flex: 1;
+  min-height: 0;            /* essencial para scroll interno funcionar */
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-radius: 15px;
+  background: #f9f9f9;
+}
+
+/* =======================
+   Sidebar / Botões de chat
+   ======================= */
+.chat-btn{
   background: transparent;
   border: 2px solid var(--brand-purple);
   color: var(--brand-purple);
@@ -123,45 +145,81 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
   text-align: left;
   font-size: 14px;
   font-weight: 500;
-  transition: all 0.25s ease;
+  transition: all .25s ease;
   cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 4px rgba(0,0,0,.05);
 }
-.chat-btn:hover {
-  background-color: var(--brand-purple);
-  color: #fff;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+.chat-btn:hover{
+  background: var(--brand-purple);
+  color:#fff;
+  box-shadow: 0 4px 10px rgba(0,0,0,.15);
   transform: translateY(-1px);
 }
-.chat-btn.active {
-  background-color: var(--brand-purple);
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+.chat-btn.active{
+  background: var(--brand-purple);
+  color:#fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,.2);
 }
-.chat-btn.novo { border-style: dashed; font-weight: bold; background: #fafafa; }
-.chat-btn.novo:hover { background: var(--brand-purple); color: #fff; }
+.chat-btn.novo{ border-style:dashed; font-weight:bold; background:#fafafa; }
+.chat-btn.novo:hover{ background:var(--brand-purple); color:#fff; }
 
-/* === Botão de trancar/destrancar (amarelo queimado) === */
-.btn-outline-warning {
+/* Trancar (amarelo queimado) */
+.btn-outline-warning{
   border-color: var(--brand-yellow) !important;
   color: var(--brand-yellow) !important;
 }
-.btn-outline-warning:hover {
-  background-color: var(--brand-yellow) !important;
+.btn-outline-warning:hover{
+  background: var(--brand-yellow) !important;
   color: #fff !important;
 }
 
-/* Modal – Vocational Test (glass com roxo #9068ba) */
+/* Azul #20639b nos botões principais */
+.btn-primary{
+  background-color: var(--brand-primary) !important;
+  border-color: var(--brand-primary) !important;
+}
+.btn-primary:hover,
+.btn-primary:focus{ filter: brightness(1.08); }
+.btn-outline-primary{
+  color: var(--brand-primary) !important;
+  border-color: var(--brand-primary) !important;
+  background:#fff !important;
+}
+.btn-outline-primary:hover,
+.btn-outline-primary:focus{
+  background: var(--brand-primary) !important;
+  color:#fff !important;
+}
+
+/* Botão "Chats" só no chat e abaixo do header */
+.chat-container .mobile-toolbar{
+  position: sticky;
+  top: calc(var(--header-h) + 8px);
+  z-index: 12;
+}
+
+/* Backdrop do drawer mobile (só no chat) */
+.chat-container .drawer-backdrop{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.35);
+  backdrop-filter: saturate(80%) blur(2px);
+  z-index: 1080;
+}
+
+/* =======================
+   Modal VT (sempre acima do drawer)
+   ======================= */
 .vt-modal-backdrop {
   position: fixed; inset: 0;
   background: rgba(8, 7, 19, 0.45);
   backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   display: flex; align-items: center; justify-content: center;
-  z-index: 1050; animation: vt-fade-in 150ms ease-out;
+  z-index: 3000;                      /* acima da sidebar (1085) */
+  animation: vt-fade-in 150ms ease-out;
 }
 .vt-modal {
   width: min(520px, 92vw);
-  /* gradiente ajustado para puxar o roxo novo */
   background: radial-gradient(120% 140% at 10% 0%, var(--brand-purple) 0%, #5a3c86 45%, #1b1731 100%);
   color: #fff;
   border-radius: 18px;
@@ -169,6 +227,7 @@ html, body, #root { margin: 0; padding: 0; height: 100%; }
   overflow: hidden;
   transform: translateY(-6px);
   animation: vt-pop 180ms cubic-bezier(.2,.8,.2,1);
+  z-index: 3001;                      /* conteúdo acima do backdrop */
 }
 .vt-modal-header {
   padding: 14px 18px; font-weight: 700; letter-spacing: .2px;
