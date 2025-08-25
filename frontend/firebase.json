@@ -1,15 +1,13 @@
 {
   "hosting": {
     "public": "dist",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
-    "rewrites": [
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [{ "source": "**", "destination": "/index.html" }],
+    "redirects": [
       {
-        "source": "**",
-        "destination": "/index.html"
+        "source": "https://www.vocationaltest.com.br/**",
+        "destination": "https://vocationaltest.com.br/:splat",
+        "type": 301
       }
     ]
   }
