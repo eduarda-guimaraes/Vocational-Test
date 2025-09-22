@@ -12,7 +12,8 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { Link, useSearchParams } from 'react-router-dom';
 const HEADER_H = 72;
-const GAP_Y = 16; // respiro vertical
+const GAP_Y = 16;
+const FOOTER_H = 80; // altura aproximada do rodapé azul-
 const ASIDE_W = 250;     // largura do card
 const ASIDE_PAD = 20;    // padding (left/right) do card
 const ASIDE_TOTAL = ASIDE_W + ASIDE_PAD * 2; // 290px
@@ -359,26 +360,26 @@ useEffect(() => {
 
 
         <aside
-  style={{
-    width: isMobile ? '85vw' : '250px',
-    maxWidth: isMobile ? 340 : 'auto',
-    backgroundColor: '#f5f5f5',
-    borderRight: isMobile ? 'none' : '1px solid #ddd',
-    padding: '20px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '10px',
-    position: 'fixed',
-    left: isMobile ? (sidebarOpen ? 0 : '-110%') : 0,
-    top: isMobile ? GAP_Y : `${HEADER_H + GAP_Y}px`, // abaixo do header com respiro
-    bottom: GAP_Y,                                   // acima do footer com respiro
-    borderRadius: isMobile ? '12px' : '0 12px 12px 0',
-    boxShadow: isMobile ? '0 8px 28px rgba(0,0,0,.25)' : '2px 0 6px rgba(0,0,0,0.08)',
-    overflowY: 'auto',
-    transition: 'left .25s ease',
-    zIndex: 1085
-  }}
->
+          style={{
+            width: isMobile ? '85vw' : '250px',
+            maxWidth: isMobile ? 340 : 'auto',
+            backgroundColor: '#f5f5f5',
+            borderRight: isMobile ? 'none' : '1px solid #ddd',
+            padding: '20px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
+            position: 'fixed',
+            left: isMobile ? (sidebarOpen ? 0 : '-110%') : 0,
+            top: isMobile ? GAP_Y : `${HEADER_H + GAP_Y}px`,
+            bottom: isMobile ? GAP_Y : `${FOOTER_H + GAP_Y}px`, // deixa um vão acima do footer
+            borderRadius: isMobile ? '12px' : '0 12px 12px 0',
+            boxShadow: isMobile ? '0 8px 28px rgba(0,0,0,.25)' : '2px 0 6px rgba(0,0,0,0.08)',
+            overflowY: 'auto',
+            transition: 'left .25s ease',
+            zIndex: 1085
+          }}
+        >
   {/* HEADER DO DRAWER (apenas mobile) */}
   {isMobile && (
     <div
@@ -458,12 +459,16 @@ useEffect(() => {
           style={{ paddingTop: '0px', minHeight: `calc(100vh - ${HEADER_H}px)`, display: 'flex', flexDirection: 'column' }}
         >
           {isMobile && (
-            <div className="mobile-toolbar d-flex align-items-center gap-2 mb-3">
+            <div
+              className="mobile-toolbar d-flex align-items-center gap-2 mb-3"
+              style={{ marginTop: '12px' }}   // ajuste aqui (12px, 16px, etc.)
+            >
               <button className="btn btn-outline-primary rounded-pill btn-sm mobile-chats-btn" onClick={toggleSidebar} aria-label="Abrir lista de chats">
                 <i className="bi bi-list me-1"></i> Chats
               </button>
             </div>
           )}
+
 
           {!isUserLoggedIn && (
             <div className="alert alert-warning rounded-4 shadow-sm d-flex flex-column align-items-center text-center">
