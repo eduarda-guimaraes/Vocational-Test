@@ -11,8 +11,12 @@ import {
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Link, useSearchParams } from 'react-router-dom';
-
 const HEADER_H = 72;
+const GAP_Y = 16;
+const FOOTER_H = 80; // altura aproximada do rodapé azul-
+const ASIDE_W = 250;     // largura do card
+const ASIDE_PAD = 20;    // padding (left/right) do card
+const ASIDE_TOTAL = ASIDE_W + ASIDE_PAD * 2; // 290px
 
 const QUESTIONARIO = [
   { etapa: 'ETAPA 1 – AUTOCONHECIMENTO', objetivo: 'Entender o perfil pessoal, interesses e habilidades naturais.', perguntas: [
@@ -344,7 +348,17 @@ useEffect(() => {
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Header />
 
-      <main style={{ flex: 1, display: 'flex', marginLeft: isMobile ? 0 : '250px', paddingTop: '12px' }}>
+      <main
+    style={{
+      flex: 1,
+      display: 'flex',
+      marginLeft: isMobile ? 0 : `${ASIDE_TOTAL + 10}px`, // ~300px de recuo
+      paddingTop: `${GAP_Y}px`,
+      paddingBottom: `${GAP_Y}px`
+    }}
+  >
+
+
         <aside
           style={{
             width: isMobile ? '85vw' : '250px',
@@ -355,63 +369,86 @@ useEffect(() => {
             display: 'flex',
             flexDirection: 'column',
             gap: '10px',
-            height: isMobile ? '100vh' : `calc(100vh - ${HEADER_H}px)`,
             position: 'fixed',
             left: isMobile ? (sidebarOpen ? 0 : '-110%') : 0,
-            top: isMobile ? 0 : `${HEADER_H}px`,
+            top: isMobile ? GAP_Y : `${HEADER_H + GAP_Y}px`,
+            bottom: isMobile ? GAP_Y : `${FOOTER_H + GAP_Y}px`, // deixa um vão acima do footer
+            borderRadius: isMobile ? '12px' : '0 12px 12px 0',
             boxShadow: isMobile ? '0 8px 28px rgba(0,0,0,.25)' : '2px 0 6px rgba(0,0,0,0.08)',
             overflowY: 'auto',
             transition: 'left .25s ease',
             zIndex: 1085
           }}
         >
-          <h6 className="fw-bold mb-3">Meus Chats</h6>
+  {/* HEADER DO DRAWER (apenas mobile) */}
+  {isMobile && (
+    <div
+      className="d-flex align-items-center justify-content-start mb-2"
+      style={{
+        position: 'sticky',
+        top: 0,
+        background: '#f5f5f5',
+        zIndex: 2,
+        paddingBottom: '8px'
+      }}
+    >
+      <button
+        className="btn btn-outline-secondary btn-sm rounded-pill"
+        onClick={toggleSidebar}
+        aria-label="Voltar"
+      >
+        <i className="bi bi-arrow-left me-1"></i> Voltar
+      </button>
+    </div>
+  )}
 
-          {isUserLoggedIn ? (
-            <>
-              {historicoChats.map((c) => (
-                <div key={c.id} className="d-flex align-items-center">
-                  <button
-                    className={`chat-btn ${c.id === chatId ? 'active' : ''}`}
-                    onClick={() => carregarChatMobile(c.id)}
-                    title={tituloDoChat(c)}
-                    style={{ flex: 1 }}
-                  >
-                    {tituloDoChat(c)}
-                  </button>
+  <h6 className="fw-bold mb-3">Meus Chats</h6>
 
-                  <div className="d-flex align-items-center gap-2" style={{ marginLeft: '8px' }}>
-                    <button
-                      className={`btn btn-sm ${c.bloqueado ? 'btn-outline-secondary' : 'btn-outline-warning'}`}
-                      onClick={() => setBloqueioChat(c.id, !c.bloqueado)}
-                      title={c.bloqueado ? 'Destrancar chat' : 'Trancar chat'}
-                    >
-                      <i className={`bi ${c.bloqueado ? 'bi-unlock' : 'bi-lock'}`}></i>
-                    </button>
+  {isUserLoggedIn ? (
+    <>
+      {historicoChats.map((c) => (
+        <div key={c.id} className="d-flex align-items-center">
+          <button
+            className={`chat-btn ${c.id === chatId ? 'active' : ''}`}
+            onClick={() => carregarChatMobile(c.id)}
+            title={tituloDoChat(c)}
+            style={{ flex: 1 }}
+          >
+            {tituloDoChat(c)}
+          </button>
 
-                    <button
-                      className="btn btn-sm btn-danger"
-                      onClick={() => openDeleteModal(c.id, tituloDoChat(c))}
-                      title="Excluir chat"
-                    >
-                      <i className="bi bi-trash"></i>
-                    </button>
-                  </div>
-                </div>
-              ))}
+          <div className="d-flex align-items-center gap-2" style={{ marginLeft: '8px' }}>
+            <button
+              className={`btn btn-sm ${c.bloqueado ? 'btn-outline-secondary' : 'btn-outline-warning'}`}
+              onClick={() => setBloqueioChat(c.id, !c.bloqueado)}
+              title={c.bloqueado ? 'Destrancar chat' : 'Trancar chat'}
+            >
+              <i className={`bi ${c.bloqueado ? 'bi-unlock' : 'bi-lock'}`}></i>
+            </button>
 
-              <button className="chat-btn novo" onClick={() => criarNovoChat()}>
-                + Novo Chat
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="text-muted small">Entre para ver seus chats.</div>
-              <button className="chat-btn novo disabled w-100" disabled>+ Novo Chat</button>
-              <Link to="/login" className="btn btn-outline-primary rounded-pill mt-2">Fazer login</Link>
-            </>
-          )}
-        </aside>
+            <button
+              className="btn btn-sm btn-danger"
+              onClick={() => openDeleteModal(c.id, tituloDoChat(c))}
+              title="Excluir chat"
+            >
+              <i className="bi bi-trash"></i>
+            </button>
+          </div>
+        </div>
+      ))}
+
+      <button className="chat-btn novo" onClick={() => criarNovoChat()}>
+        + Novo Chat
+      </button>
+    </>
+  ) : (
+    <>
+      <div className="text-muted small">Entre para ver seus chats.</div>
+      <button className="chat-btn novo disabled w-100" disabled>+ Novo Chat</button>
+    </>
+  )}
+</aside>
+
 
         {isMobile && sidebarOpen && (
           <div className="drawer-backdrop" onClick={toggleSidebar} aria-hidden="true" style={{ zIndex: 1080 }} />
@@ -422,22 +459,24 @@ useEffect(() => {
           style={{ paddingTop: '0px', minHeight: `calc(100vh - ${HEADER_H}px)`, display: 'flex', flexDirection: 'column' }}
         >
           {isMobile && (
-            <div className="mobile-toolbar d-flex align-items-center gap-2 mb-3">
+            <div
+              className="mobile-toolbar d-flex align-items-center gap-2 mb-3"
+              style={{ marginTop: '12px' }}   // ajuste aqui (12px, 16px, etc.)
+            >
               <button className="btn btn-outline-primary rounded-pill btn-sm mobile-chats-btn" onClick={toggleSidebar} aria-label="Abrir lista de chats">
                 <i className="bi bi-list me-1"></i> Chats
               </button>
             </div>
           )}
 
+
           {!isUserLoggedIn && (
             <div className="alert alert-warning rounded-4 shadow-sm d-flex flex-column align-items-center text-center">
               <div className="mb-2">Atenção: Você precisa estar logado para iniciar o teste vocacional.</div>
-              <div className="d-flex gap-2">
-                <Link to="/login" className="btn btn-primary rounded-pill px-4">Fazer login</Link>
-                <Link to="/perfil" className="btn btn-outline-secondary rounded-pill px-4">Ir para o perfil</Link>
-              </div>
+              <Link to="/login" className="btn btn-primary rounded-pill px-4">Fazer login</Link>
             </div>
           )}
+
 
           {/* Aviso/guia */}
           <div className="alert text-center rounded-4 shadow-sm p-4" style={{ backgroundColor: '#e3f2fd', color: '#0d47a1', marginTop: '8px', marginBottom: '12px' }}>
