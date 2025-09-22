@@ -33,7 +33,7 @@ function Perfil() {
   useEffect(() => {
     const fetchUserData = async () => {
       const currentUser = auth.currentUser;
-      await currentUser?.reload(); // garante dados atualizados
+      await currentUser?.reload();
 
       if (currentUser) {
         try {
@@ -76,28 +76,24 @@ function Perfil() {
     }
   };
 
-  // ===== Exclusão de conta (não pede senha para Google) =====
   const confirmarExclusao = async () => {
     setErroExcluir('');
     try {
       const user = auth.currentUser;
       if (!user) throw new Error('Usuário não autenticado.');
 
-      // Checa se existe ALGUM provedor password (contas multi-provedor inclusas)
       const temPassword = (user.providerData || []).some(p => p.providerId === 'password');
 
       if (temPassword) {
-        // Reautenticação por senha (contas com e-mail/senha)
         const cred = EmailAuthProvider.credential(user.email, senhaExcluir);
         await reauthenticateWithCredential(user, cred);
       } else {
-        // Reautenticação via popup (Google / sem password)
         await reauthenticateWithPopup(user, provider);
       }
 
-      await deleteUser(user);     // Exclui a conta
-      await signOut(auth);        // Desloga
-      navigate('/');              // Redireciona
+      await deleteUser(user);     
+      await signOut(auth);        
+      navigate('/');             
     } catch (error) {
       console.error('Erro ao excluir conta:', error);
       let msg = 'Erro ao excluir conta: ';
@@ -217,7 +213,6 @@ function Perfil() {
     );
   };
 
-  // Checa dinamicamente se a conta tem provedor password (para o modal)
   const ehContaComSenha = (auth.currentUser?.providerData || [])
     .some(p => p.providerId === 'password');
 
