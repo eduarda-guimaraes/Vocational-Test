@@ -176,15 +176,13 @@ function Historico() {
                   </Link>
                 </div>
 
-                <div className="mb-2">
-                  <p className="mb-1 fw-semibold" style={{ color: '#447EB8' }}>
-                    Análise:
-                  </p>
-                  {/* Exibe TODA a análise, sem limitar */}
-                  <p className="mb-2" style={{ whiteSpace: 'pre-wrap', color: '#333' }}>
-                    {item.resumoAnalise}
-                  </p>
-                </div>
+                <p className="mb-1 fw-semibold" style={{ color: '#447EB8' }}>
+                  Resumo Final:
+                </p>
+                <p className="mb-2" style={{ whiteSpace: 'pre-wrap', color: '#333' }}>
+                  {item.resumoAnalise}
+                </p>
+
 
                 <div className="bg-light p-2 rounded" style={{ border: '1px dashed #cbd5e1' }}>
                   <p className="mb-1 small text-muted">Prévia do chat:</p>
