@@ -13,7 +13,9 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { Link, useSearchParams } from 'react-router-dom';
 const HEADER_H = 72;
 const GAP_Y = 16; // respiro vertical
-
+const ASIDE_W = 250;     // largura do card
+const ASIDE_PAD = 20;    // padding (left/right) do card
+const ASIDE_TOTAL = ASIDE_W + ASIDE_PAD * 2; // 290px
 
 const QUESTIONARIO = [
   { etapa: 'ETAPA 1 – AUTOCONHECIMENTO', objetivo: 'Entender o perfil pessoal, interesses e habilidades naturais.', perguntas: [
@@ -346,102 +348,106 @@ useEffect(() => {
       <Header />
 
       <main
-        style={{
-          flex: 1,
-          display: 'flex',
-          marginLeft: 0, // sidebar não é mais fixed no desktop
-          paddingTop: `${GAP_Y}px`,
-          paddingBottom: `${GAP_Y}px`
-        }}
-      >
+    style={{
+      flex: 1,
+      display: 'flex',
+      marginLeft: isMobile ? 0 : `${ASIDE_TOTAL + 10}px`, // ~300px de recuo
+      paddingTop: `${GAP_Y}px`,
+      paddingBottom: `${GAP_Y}px`
+    }}
+  >
+
 
         <aside
-          style={{
-            width: isMobile ? '85vw' : '250px',
-            maxWidth: isMobile ? 340 : '250px',
-            backgroundColor: '#f5f5f5',
-            borderRight: isMobile ? 'none' : '1px solid #ddd',
-            padding: '20px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '10px',
+  style={{
+    width: isMobile ? '85vw' : '250px',
+    maxWidth: isMobile ? 340 : 'auto',
+    backgroundColor: '#f5f5f5',
+    borderRight: isMobile ? 'none' : '1px solid #ddd',
+    padding: '20px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+    position: 'fixed',
+    left: isMobile ? (sidebarOpen ? 0 : '-110%') : 0,
+    top: isMobile ? GAP_Y : `${HEADER_H + GAP_Y}px`, // abaixo do header com respiro
+    bottom: GAP_Y,                                   // acima do footer com respiro
+    borderRadius: isMobile ? '12px' : '0 12px 12px 0',
+    boxShadow: isMobile ? '0 8px 28px rgba(0,0,0,.25)' : '2px 0 6px rgba(0,0,0,0.08)',
+    overflowY: 'auto',
+    transition: 'left .25s ease',
+    zIndex: 1085
+  }}
+>
+  {/* HEADER DO DRAWER (apenas mobile) */}
+  {isMobile && (
+    <div
+      className="d-flex align-items-center justify-content-start mb-2"
+      style={{
+        position: 'sticky',
+        top: 0,
+        background: '#f5f5f5',
+        zIndex: 2,
+        paddingBottom: '8px'
+      }}
+    >
+      <button
+        className="btn btn-outline-secondary btn-sm rounded-pill"
+        onClick={toggleSidebar}
+        aria-label="Voltar"
+      >
+        <i className="bi bi-arrow-left me-1"></i> Voltar
+      </button>
+    </div>
+  )}
 
-            // >>> MOBILE: drawer fixo (como estava)
-            ...(isMobile
-              ? {
-                  position: 'fixed',
-                  left: sidebarOpen ? 0 : '-110%',
-                  top: 0,
-                  bottom: 0,
-                  borderRadius: '12px',
-                  boxShadow: '0 8px 28px rgba(0,0,0,.25)',
-                  zIndex: 1085,
-                  transition: 'left .25s ease'
-                }
-              // >>> DESKTOP: sidebar "cartão" sticky, com respiro
-              : {
-                  position: 'sticky',
-                  top: `${HEADER_H + GAP_Y}px`, // separado do header
-                  alignSelf: 'flex-start',
-                  height: 'auto',
-                  maxHeight: `calc(100vh - ${HEADER_H}px - ${GAP_Y * 2}px)`, // separado do footer
-                  overflowY: 'auto',
-                  borderRadius: '12px',
-                  boxShadow: '2px 0 6px rgba(0,0,0,0.08)'
-                }
-            )
-          }}
-        >
+  <h6 className="fw-bold mb-3">Meus Chats</h6>
 
+  {isUserLoggedIn ? (
+    <>
+      {historicoChats.map((c) => (
+        <div key={c.id} className="d-flex align-items-center">
+          <button
+            className={`chat-btn ${c.id === chatId ? 'active' : ''}`}
+            onClick={() => carregarChatMobile(c.id)}
+            title={tituloDoChat(c)}
+            style={{ flex: 1 }}
+          >
+            {tituloDoChat(c)}
+          </button>
 
+          <div className="d-flex align-items-center gap-2" style={{ marginLeft: '8px' }}>
+            <button
+              className={`btn btn-sm ${c.bloqueado ? 'btn-outline-secondary' : 'btn-outline-warning'}`}
+              onClick={() => setBloqueioChat(c.id, !c.bloqueado)}
+              title={c.bloqueado ? 'Destrancar chat' : 'Trancar chat'}
+            >
+              <i className={`bi ${c.bloqueado ? 'bi-unlock' : 'bi-lock'}`}></i>
+            </button>
 
+            <button
+              className="btn btn-sm btn-danger"
+              onClick={() => openDeleteModal(c.id, tituloDoChat(c))}
+              title="Excluir chat"
+            >
+              <i className="bi bi-trash"></i>
+            </button>
+          </div>
+        </div>
+      ))}
 
-          <h6 className="fw-bold mb-3">Meus Chats</h6>
+      <button className="chat-btn novo" onClick={() => criarNovoChat()}>
+        + Novo Chat
+      </button>
+    </>
+  ) : (
+    <>
+      <div className="text-muted small">Entre para ver seus chats.</div>
+      <button className="chat-btn novo disabled w-100" disabled>+ Novo Chat</button>
+    </>
+  )}
+</aside>
 
-          {isUserLoggedIn ? (
-            <>
-              {historicoChats.map((c) => (
-                <div key={c.id} className="d-flex align-items-center">
-                  <button
-                    className={`chat-btn ${c.id === chatId ? 'active' : ''}`}
-                    onClick={() => carregarChatMobile(c.id)}
-                    title={tituloDoChat(c)}
-                    style={{ flex: 1 }}
-                  >
-                    {tituloDoChat(c)}
-                  </button>
-
-                  <div className="d-flex align-items-center gap-2" style={{ marginLeft: '8px' }}>
-                    <button
-                      className={`btn btn-sm ${c.bloqueado ? 'btn-outline-secondary' : 'btn-outline-warning'}`}
-                      onClick={() => setBloqueioChat(c.id, !c.bloqueado)}
-                      title={c.bloqueado ? 'Destrancar chat' : 'Trancar chat'}
-                    >
-                      <i className={`bi ${c.bloqueado ? 'bi-unlock' : 'bi-lock'}`}></i>
-                    </button>
-
-                    <button
-                      className="btn btn-sm btn-danger"
-                      onClick={() => openDeleteModal(c.id, tituloDoChat(c))}
-                      title="Excluir chat"
-                    >
-                      <i className="bi bi-trash"></i>
-                    </button>
-                  </div>
-                </div>
-              ))}
-
-              <button className="chat-btn novo" onClick={() => criarNovoChat()}>
-                + Novo Chat
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="text-muted small">Entre para ver seus chats.</div>
-              <button className="chat-btn novo disabled w-100" disabled>+ Novo Chat</button>
-            </>
-          )}
-        </aside>
 
         {isMobile && sidebarOpen && (
           <div className="drawer-backdrop" onClick={toggleSidebar} aria-hidden="true" style={{ zIndex: 1080 }} />
