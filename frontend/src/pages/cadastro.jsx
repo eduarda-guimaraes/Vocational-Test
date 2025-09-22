@@ -22,13 +22,9 @@ export default function Cadastro() {
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [mostrarConfirmSenha, setMostrarConfirmSenha] = useState(false);
   const navigate = useNavigate();
-
-  // Validações de email e senha
   const emailEhValido = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const senhaEhForte = (senha) =>
     /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{6,}$/.test(senha);
-
-  // Função para fazer o upload da foto no Cloudinary
   const uploadParaCloudinary = async (file) => {
     const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
     const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
@@ -44,17 +40,16 @@ export default function Cadastro() {
     if (!response.ok) throw new Error('Erro ao enviar imagem para o Cloudinary');
 
     const data = await response.json();
-    return data.secure_url; // Retorna a URL segura da imagem
+    return data.secure_url; 
   };
 
-  // Função para lidar com a mudança da foto de perfil
   const handleFotoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => setFotoPreview(reader.result);
       reader.readAsDataURL(file);
-      setFotoFile(file); // Armazena o arquivo da foto selecionada
+      setFotoFile(file);
     }
   };
 
@@ -62,42 +57,35 @@ export default function Cadastro() {
     e.preventDefault();
     setErro('');
 
-    // Validações do formulário
     if (!emailEhValido(email)) return setErro('Formato de email inválido.');
     if (senha !== confirmSenha) return setErro('As senhas não coincidem.');
     if (!senhaEhForte(senha)) return setErro('A senha deve ter no mínimo 6 caracteres, com letras, números e símbolo.');
     if (!dataNascimento) return setErro('A data de nascimento é obrigatória.');
 
     try {
-      // Criação do usuário no Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
       const usuario = userCredential.user;
 
-      // Enviar email de verificação
       await sendEmailVerification(usuario);
 
-      // Faz upload da foto para o Cloudinary, caso o usuário tenha escolhido uma
       let fotoURL = null;
       if (fotoFile) {
         fotoURL = await uploadParaCloudinary(fotoFile);
       }
 
-      // Salva os dados no Firestore
       await setDoc(doc(db, "usuarios", usuario.uid), {
         nome,
         email,
         dataNascimento, 
         fotoPerfil: fotoURL, 
         criadoEm: new Date(),
-        emailVerificado: false, // Definido como false, pois o e-mail ainda não foi verificado
+        emailVerificado: false, 
       });
 
-      // Armazenando as informações temporariamente antes da verificação de email
       localStorage.setItem('nomeUsuario', nome);
       sessionStorage.setItem('emailTemp', email);
       sessionStorage.setItem('senhaTemp', senha);
 
-      // Redireciona para a página de aguardo de verificação
       navigate('/aguardando-verificacao');
     } catch (err) {
       console.error('Erro Firebase:', err.code);

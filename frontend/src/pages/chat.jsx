@@ -4,14 +4,13 @@ import '../styles/global.css';
 import '../styles/form.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
-
 import { auth, db } from '../services/firebase';
 import {
   collection, addDoc, serverTimestamp, query, where,
   getDocs, orderBy, deleteDoc, doc, updateDoc, getDoc
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 const HEADER_H = 72;
 
@@ -55,6 +54,8 @@ function Chat() {
   const [userPhoto, setUserPhoto] = useState('/iconevazio.png');
   const [isUserLoggedIn, setIsUserLoggedIn] = useState(true);
   const [historicoChats, setHistoricoChats] = useState([]);
+  const [searchParams] = useSearchParams();
+
 
   // Fluxo do questionário/IA
   const [modo, setModo] = useState('questionario');
@@ -63,15 +64,9 @@ function Chat() {
   const [respostas, setRespostas] = useState([]);
   const [isTestEnded, setIsTestEnded] = useState(false);
   const [respostasAnterioresIA, setRespostasAnterioresIA] = useState([]);
-
-  // Layout
   const textareaRef = useRef(null);
   const [textareaHeight, setTextareaHeight] = useState(50);
-
-  // Modal de confirmação de exclusão
   const [confirmDelete, setConfirmDelete] = useState({ open: false, chatId: null, title: '' });
-
-  // RESPONSIVO
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 992 : false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   useEffect(() => {
@@ -80,13 +75,8 @@ function Chat() {
     return () => window.removeEventListener('resize', onResize);
   }, []);
   const toggleSidebar = () => setSidebarOpen(v => !v);
-
-  // Altura fixa da janela do chat (com rolagem interna)
   const chatBoxHeight = isMobile ? '56vh' : '62vh';
-
   const backendUrl = import.meta.env.VITE_API_URL;
-
-  // Helpers
   const formatarDataCurta = (date) => {
     try {
       return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(date);
@@ -97,8 +87,6 @@ function Chat() {
     const criado = c?.criado_em?.toDate ? c.criado_em.toDate() : null;
     return criado ? `Chat ${formatarDataCurta(criado)}` : `Chat ${c.id?.slice(0, 5)}`;
   };
-
-  // Firestore helpers
   const salvarMensagem = async (tipo, conteudo) => {
     try {
       if (!chatId) return;
@@ -136,8 +124,6 @@ function Chat() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
-
-  // Scroll automático
   const scrollToBottom = () => {
     setTimeout(() => {
       const chatContainer = document.getElementById('chatContainer');
@@ -197,37 +183,47 @@ function Chat() {
   };
 
   // Auth + histórico
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        setIsUserLoggedIn(false); setUserId(null); setChatId(null);
+  // Auth + histórico
+useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      setIsUserLoggedIn(false); setUserId(null); setChatId(null);
+      return;
+    }
+    setIsUserLoggedIn(true); setUserId(user.uid); setUserPhoto(user.photoURL || '/iconevazio.png');
+    try {
+      const q = query(collection(db, 'chats'), where('usuario_id', '==', user.uid));
+      const querySnapshot = await getDocs(q);
+      const lista = [];
+      for (const docSnap of querySnapshot.docs) {
+        const dados = { id: docSnap.id, ...docSnap.data() };
+        const msgsSnap = await getDocs(query(collection(db, 'chats', docSnap.id, 'mensagens'), orderBy('timestamp', 'asc')));
+        if (msgsSnap.empty) { await excluirChat(docSnap.id); } else { lista.push(dados); }
+      }
+      lista.sort((a, b) => {
+        const da = a?.criado_em?.toDate ? a.criado_em.toDate().getTime() : 0;
+        const db_ = b?.criado_em?.toDate ? b.criado_em.toDate().getTime() : 0;
+        return db_ - da;
+      });
+      setHistoricoChats(lista);
+
+      // >>> NOVO: abrir o chat pelo query param ?id= <<<
+      const urlId = searchParams.get('id');
+      if (urlId && lista.some(c => c.id === urlId)) {
+        await carregarChat(urlId);
         return;
       }
-      setIsUserLoggedIn(true); setUserId(user.uid); setUserPhoto(user.photoURL || '/iconevazio.png');
-      try {
-        const q = query(collection(db, 'chats'), where('usuario_id', '==', user.uid));
-        const querySnapshot = await getDocs(q);
-        const lista = [];
-        for (const docSnap of querySnapshot.docs) {
-          const dados = { id: docSnap.id, ...docSnap.data() };
-          const msgsSnap = await getDocs(query(collection(db, 'chats', docSnap.id, 'mensagens'), orderBy('timestamp', 'asc')));
-          if (msgsSnap.empty) { await excluirChat(docSnap.id); } else { lista.push(dados); }
-        }
-        lista.sort((a, b) => {
-          const da = a?.criado_em?.toDate ? a.criado_em.toDate().getTime() : 0;
-          const db_ = b?.criado_em?.toDate ? b.criado_em.toDate().getTime() : 0;
-          return db_ - da;
-        });
-        setHistoricoChats(lista);
-        if (lista.length === 0) {
-          await criarNovoChat(user.uid);
-        } else if (!chatId) {
-          await carregarChat(lista[0].id);
-        }
-      } catch (error) { console.error('Erro ao buscar chats:', error); }
-    });
-    return () => unsubscribe();
-  }, []); // eslint-disable-line
+
+      if (lista.length === 0) {
+        await criarNovoChat(user.uid);
+      } else if (!chatId) {
+        await carregarChat(lista[0].id);
+      }
+    } catch (error) { console.error('Erro ao buscar chats:', error); }
+  });
+  return () => unsubscribe();
+}, []); // eslint-disable-line
+
 
   const criarNovoChat = async (uid = userId) => {
     try {
@@ -349,7 +345,6 @@ function Chat() {
       <Header />
 
       <main style={{ flex: 1, display: 'flex', marginLeft: isMobile ? 0 : '250px', paddingTop: '12px' }}>
-        {/* Sidebar fixa / Drawer responsivo — AGORA SEMPRE VISÍVEL */}
         <aside
           style={{
             width: isMobile ? '85vw' : '250px',
@@ -418,17 +413,14 @@ function Chat() {
           )}
         </aside>
 
-        {/* Overlay/backdrop quando o drawer está aberto no mobile */}
         {isMobile && sidebarOpen && (
           <div className="drawer-backdrop" onClick={toggleSidebar} aria-hidden="true" style={{ zIndex: 1080 }} />
         )}
 
-        {/* Área principal do chat */}
         <div
           className="container py-4 flex-grow-1 chat-container"
           style={{ paddingTop: '0px', minHeight: `calc(100vh - ${HEADER_H}px)`, display: 'flex', flexDirection: 'column' }}
         >
-          {/* Barra superior no mobile (botão para abrir a lista) */}
           {isMobile && (
             <div className="mobile-toolbar d-flex align-items-center gap-2 mb-3">
               <button className="btn btn-outline-primary rounded-pill btn-sm mobile-chats-btn" onClick={toggleSidebar} aria-label="Abrir lista de chats">
@@ -459,7 +451,6 @@ function Chat() {
             </p>
           </div>
 
-          {/* Caixa do chat */}
           <div
             className="chat-box p-3"
             style={{
