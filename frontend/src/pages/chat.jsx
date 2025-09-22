@@ -11,8 +11,9 @@ import {
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Link, useSearchParams } from 'react-router-dom';
-
 const HEADER_H = 72;
+const GAP_Y = 16; // respiro vertical
+
 
 const QUESTIONARIO = [
   { etapa: 'ETAPA 1 – AUTOCONHECIMENTO', objetivo: 'Entender o perfil pessoal, interesses e habilidades naturais.', perguntas: [
@@ -344,27 +345,57 @@ useEffect(() => {
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Header />
 
-      <main style={{ flex: 1, display: 'flex', marginLeft: isMobile ? 0 : '250px', paddingTop: '12px' }}>
+      <main
+        style={{
+          flex: 1,
+          display: 'flex',
+          marginLeft: 0, // sidebar não é mais fixed no desktop
+          paddingTop: `${GAP_Y}px`,
+          paddingBottom: `${GAP_Y}px`
+        }}
+      >
+
         <aside
           style={{
             width: isMobile ? '85vw' : '250px',
-            maxWidth: isMobile ? 340 : 'auto',
+            maxWidth: isMobile ? 340 : '250px',
             backgroundColor: '#f5f5f5',
             borderRight: isMobile ? 'none' : '1px solid #ddd',
             padding: '20px',
             display: 'flex',
             flexDirection: 'column',
             gap: '10px',
-            height: isMobile ? '100vh' : `calc(100vh - ${HEADER_H}px)`,
-            position: 'fixed',
-            left: isMobile ? (sidebarOpen ? 0 : '-110%') : 0,
-            top: isMobile ? 0 : `${HEADER_H}px`,
-            boxShadow: isMobile ? '0 8px 28px rgba(0,0,0,.25)' : '2px 0 6px rgba(0,0,0,0.08)',
-            overflowY: 'auto',
-            transition: 'left .25s ease',
-            zIndex: 1085
+
+            // >>> MOBILE: drawer fixo (como estava)
+            ...(isMobile
+              ? {
+                  position: 'fixed',
+                  left: sidebarOpen ? 0 : '-110%',
+                  top: 0,
+                  bottom: 0,
+                  borderRadius: '12px',
+                  boxShadow: '0 8px 28px rgba(0,0,0,.25)',
+                  zIndex: 1085,
+                  transition: 'left .25s ease'
+                }
+              // >>> DESKTOP: sidebar "cartão" sticky, com respiro
+              : {
+                  position: 'sticky',
+                  top: `${HEADER_H + GAP_Y}px`, // separado do header
+                  alignSelf: 'flex-start',
+                  height: 'auto',
+                  maxHeight: `calc(100vh - ${HEADER_H}px - ${GAP_Y * 2}px)`, // separado do footer
+                  overflowY: 'auto',
+                  borderRadius: '12px',
+                  boxShadow: '2px 0 6px rgba(0,0,0,0.08)'
+                }
+            )
           }}
         >
+
+
+
+
           <h6 className="fw-bold mb-3">Meus Chats</h6>
 
           {isUserLoggedIn ? (
@@ -408,7 +439,6 @@ useEffect(() => {
             <>
               <div className="text-muted small">Entre para ver seus chats.</div>
               <button className="chat-btn novo disabled w-100" disabled>+ Novo Chat</button>
-              <Link to="/login" className="btn btn-outline-primary rounded-pill mt-2">Fazer login</Link>
             </>
           )}
         </aside>
@@ -432,12 +462,10 @@ useEffect(() => {
           {!isUserLoggedIn && (
             <div className="alert alert-warning rounded-4 shadow-sm d-flex flex-column align-items-center text-center">
               <div className="mb-2">Atenção: Você precisa estar logado para iniciar o teste vocacional.</div>
-              <div className="d-flex gap-2">
-                <Link to="/login" className="btn btn-primary rounded-pill px-4">Fazer login</Link>
-                <Link to="/perfil" className="btn btn-outline-secondary rounded-pill px-4">Ir para o perfil</Link>
-              </div>
+              <Link to="/login" className="btn btn-primary rounded-pill px-4">Fazer login</Link>
             </div>
           )}
+
 
           {/* Aviso/guia */}
           <div className="alert text-center rounded-4 shadow-sm p-4" style={{ backgroundColor: '#e3f2fd', color: '#0d47a1', marginTop: '8px', marginBottom: '12px' }}>
