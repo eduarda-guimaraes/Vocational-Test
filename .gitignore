@@ -5,6 +5,10 @@ node_modules/
 dist/
 build/
 
+# build do frontend
+frontend/dist/
+
+
 # Arquivos de ambiente e segredos
 .env
 .env.*.local

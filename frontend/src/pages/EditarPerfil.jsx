@@ -8,8 +8,6 @@ import {
   deleteUser,
   reauthenticateWithPopup,
   sendEmailVerification
-  // Se quiser seguir o modular:
-  // signOut
 } from 'firebase/auth';
 import { auth, db, provider } from '../services/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -20,7 +18,6 @@ export default function EditarPerfil() {
   const location = useLocation();
   const voltarPara = location.state?.voltarPara || 'perfil';
 
-  // Usuário sempre pelo auth.currentUser
   const user = auth.currentUser;
 
   const [nome, setNome] = useState(user?.displayName || '');
@@ -43,11 +40,9 @@ export default function EditarPerfil() {
   const [erro, setErro] = useState('');
   const [erroExcluir, setErroExcluir] = useState('');
 
-  // ENV Cloudinary (preset deve ser UNSIGNED)
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
   const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
-  // Carrega dados adicionais do Firestore
   useEffect(() => {
     const carregarFirestore = async () => {
       try {
@@ -75,7 +70,6 @@ export default function EditarPerfil() {
       }
     };
     carregarFirestore();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ====== Helpers ======
