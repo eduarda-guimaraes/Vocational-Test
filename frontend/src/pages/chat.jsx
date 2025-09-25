@@ -215,7 +215,7 @@ function Chat() {
         }
         lista.sort((a, b) => {
           const da = a?.criado_em?.toDate ? a.criado_em.toDate().getTime() : 0;
-          const db_ = b?.criado_em?.toDate ? b.criado_em.toDate().getTime() : 0;
+          const db_ = b?.criado_em?.toDate ? b?.criado_em?.toDate().getTime() : 0;
           return db_ - da;
         });
         setHistoricoChats(lista);
@@ -331,7 +331,8 @@ function Chat() {
     await enqueueBot(data?.resposta || 'Não consegui entender, pode reformular?');
   };
 
-  const handleKeyPress = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } };
+  const handleKeyPress = (e) => { if (e.key === 'Enter' && !e.shiftKey
+) { e.preventDefault(); handleSend(); } };
   const handleInput = () => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
