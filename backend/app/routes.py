@@ -1,4 +1,3 @@
-# backend/app/routes.py
 import os
 import random
 import uuid
@@ -8,6 +7,7 @@ from openai import OpenAI
 
 # --- OpenAI ---
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+AI_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 # --- Flask BP ---
@@ -43,7 +43,7 @@ def salvar_mensagem(chat_id: str, conteudo: str, tipo: str = "resposta"):
     db = firestore.client()
     mensagens_ref = db.collection('chats').document(chat_id).collection('mensagens')
     mensagens_ref.add({
-        'tipo': tipo,  # 'pergunta' | 'resposta'
+        'tipo': tipo,  # 'pergunta' | 'resposta' | 'resumo_final' (no front vocês usam também)
         'conteudo': conteudo,
         'timestamp': firestore.SERVER_TIMESTAMP
     })
@@ -84,7 +84,7 @@ def revisar_resposta(resposta: str) -> str:
 
 def montar_contexto_do_chat(chat_id: str) -> str:
     """
-    Constrói contexto com pares pergunta/resposta do questionário + chat livre.
+    Constrói contexto com pares pergunta/resposta do questionário + chat livre (histórico completo).
     """
     db = firestore.client()
     respostas_ref = db.collection('chats').document(chat_id).collection('respostas')
@@ -102,6 +102,32 @@ def montar_contexto_do_chat(chat_id: str) -> str:
             blocos.append(f"Q: {pergunta}\nA: {resposta}")
 
     return "\n\n".join(blocos) if blocos else "Sem histórico suficiente."
+
+def montar_contexto_compacto(chat_id: str, max_pares: int = 8, max_chars: int = 3000) -> str:
+    """
+    Versão compacta do contexto: pega apenas os últimos N pares Q/A de 'respostas',
+    preservando a ordem cronológica e limitando o tamanho total.
+    """
+    db = firestore.client()
+    respostas_ref = db.collection('chats').document(chat_id).collection('respostas')
+
+    # Buscar os últimos max_pares em ordem decrescente e depois inverter
+    snaps = list(respostas_ref.order_by('timestamp', direction=firestore.Query.DESCENDING).limit(max_pares).stream())
+    pares = []
+    for doc in reversed(snaps):  # volta à ordem cronológica
+        d = doc.to_dict() or {}
+        pergunta = (d.get('pergunta') or '').strip()
+        resposta = (d.get('resposta') or '').strip()
+        etapa = d.get('etapa')
+        if etapa:
+            pares.append(f"[{etapa}] Q: {pergunta}\nA: {resposta}")
+        else:
+            pares.append(f"Q: {pergunta}\nA: {resposta}")
+
+    contexto = "\n\n".join(pares).strip() or "Sem histórico suficiente."
+    if len(contexto) > max_chars:
+        contexto = contexto[-max_chars:]  # mantém o final (as interações mais recentes)
+    return contexto
 
 def is_greeting(texto: str) -> bool:
     t = (texto or "").strip().lower()
@@ -127,7 +153,7 @@ def chat_vocacional():
                 {"role": "user", "content": f"Com base no histórico abaixo, gere um RESUMO FINAL curto (6–10 linhas) com: perfil, áreas aderentes e próximos passos.\n\n{contexto}"}
             ]
             response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
+                model=AI_MODEL,
                 messages=msgs,
                 max_tokens=300,
                 temperature=0.6
@@ -138,19 +164,18 @@ def chat_vocacional():
 
         # --- INÍCIO DA CONVERSA LIVRE: gerar pergunta contextual (sem "Olá") ---
         if kickoff:
+            # usa histórico completo do questionário + eventuais pares já salvos
             contexto = montar_contexto_do_chat(chat_id)
-            # Prompt: 1 pergunta objetiva, baseada no que a pessoa respondeu no questionário (rotina/hábitos)
             msgs = [
                 {"role": "system", "content":
                     "Você é um orientador vocacional. Gere UMA única pergunta curta e específica em PT-BR, "
                     "sem cumprimentos, baseada no histórico do questionário do usuário. "
                     "Foque em hábitos do dia a dia relacionados aos interesses citados. "
-                    "Apenas 1 pergunta, terminando com '?'."
-                },
+                    "Apenas 1 pergunta, terminando com '?'."},
                 {"role": "user", "content": f"Histórico (perguntas e respostas):\n\n{contexto}\n\nGere UMA pergunta contextual única."}
             ]
             response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
+                model=AI_MODEL,
                 messages=msgs,
                 max_tokens=60,
                 temperature=0.6
@@ -161,20 +186,24 @@ def chat_vocacional():
             salvar_mensagem(chat_id, pergunta_contextual, tipo="resposta")
             return jsonify({"resposta": pergunta_contextual, "pergunta_aleatoria": None})
 
-        # --- Fluxo normal: resposta curta + UMA pergunta no final (sem cumprimentos) ---
+        # --- Fluxo normal: agora COM CONTEXTO compacto ---
+        contexto_compacto = montar_contexto_compacto(chat_id, max_pares=8, max_chars=3000)
         mensagens_completas = [
             {"role": "system", "content":
                 "Você é um assistente vocacional objetivo e educado. Responda em PT-BR, com 1–3 frases claras, "
                 "SEM cumprimentos do tipo 'Olá' ou 'Como posso ajudar'. "
                 "Sempre finalize com UMA pergunta curta e específica para avançar a conversa."
             },
-            {"role": "user", "content": pergunta}
+            {"role": "user", "content":
+                f"Contexto (últimas interações de pergunta e resposta):\n{contexto_compacto}\n\n"
+                f"Nova mensagem do usuário: {pergunta}\n\n"
+                f"Considere o contexto para manter o assunto e evite repetir perguntas já feitas."}
         ]
 
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model=AI_MODEL,
             messages=mensagens_completas,
-            max_tokens=140,
+            max_tokens=160,
             temperature=0.7
         )
 
@@ -193,7 +222,7 @@ def chat_vocacional():
                 {"role": "user", "content": f"Gere um RESUMO FINAL (6–10 linhas) com perfil, áreas indicadas e próximos passos, com base no histórico:\n\n{contexto}"}
             ]
             r2 = client.chat.completions.create(
-                model="gpt-3.5-turbo",
+                model=AI_MODEL,
                 messages=msgs,
                 max_tokens=320,
                 temperature=0.6
@@ -248,7 +277,7 @@ def analise_perfil():
         user_msg = f"Respostas do questionário:\n\n{contexto}\n\nGere a análise seguindo exatamente a estrutura."
 
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model=AI_MODEL,
             messages=[{"role": "system", "content": system_msg}, {"role": "user", "content": user_msg}],
             max_tokens=900,
             temperature=0.6
