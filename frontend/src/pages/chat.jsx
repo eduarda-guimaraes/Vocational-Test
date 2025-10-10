@@ -7,16 +7,17 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 import { auth, db } from '../services/firebase';
 import {
   collection, addDoc, serverTimestamp, query, where,
-  getDocs, orderBy, deleteDoc, doc, updateDoc, getDoc
+  getDocs, orderBy, deleteDoc, doc, updateDoc, getDoc, limit
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Link, useSearchParams } from 'react-router-dom';
+
 const HEADER_H = 72;
 const GAP_Y = 16;
-const FOOTER_H = 80; // altura aproximada do rodapé azul-
-const ASIDE_W = 250;     // largura do card
-const ASIDE_PAD = 20;    // padding (left/right) do card
-const ASIDE_TOTAL = ASIDE_W + ASIDE_PAD * 2; // 290px
+const FOOTER_H = 80;
+const ASIDE_W = 250;
+const ASIDE_PAD = 20;
+const ASIDE_TOTAL = ASIDE_W + ASIDE_PAD * 2;
 
 const QUESTIONARIO = [
   { etapa: 'ETAPA 1 – AUTOCONHECIMENTO', objetivo: 'Entender o perfil pessoal, interesses e habilidades naturais.', perguntas: [
@@ -60,7 +61,6 @@ function Chat() {
   const [historicoChats, setHistoricoChats] = useState([]);
   const [searchParams] = useSearchParams();
 
-
   // Fluxo do questionário/IA
   const [modo, setModo] = useState('questionario');
   const [etapaIndex, setEtapaIndex] = useState(0);
@@ -73,6 +73,7 @@ function Chat() {
   const [confirmDelete, setConfirmDelete] = useState({ open: false, chatId: null, title: '' });
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 992 : false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 992);
     window.addEventListener('resize', onResize);
@@ -81,28 +82,33 @@ function Chat() {
   const toggleSidebar = () => setSidebarOpen(v => !v);
   const chatBoxHeight = isMobile ? '56vh' : '62vh';
   const backendUrl = import.meta.env.VITE_API_URL;
+
   const formatarDataCurta = (date) => {
     try {
       return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(date);
     } catch { return ''; }
   };
+
   const tituloDoChat = (c) => {
     if (c?.titulo) return c.titulo;
     const criado = c?.criado_em?.toDate ? c.criado_em.toDate() : null;
     return criado ? `Chat ${formatarDataCurta(criado)}` : `Chat ${c.id?.slice(0, 5)}`;
   };
+
   const salvarMensagem = async (tipo, conteudo) => {
     try {
       if (!chatId) return;
       await addDoc(collection(db, 'chats', chatId, 'mensagens'), { tipo, conteudo, timestamp: serverTimestamp() });
     } catch (e) { console.error('Falha ao salvar mensagem:', e); }
   };
+
   const salvarRespostaQuestionario = async ({ etapa, pergunta, resposta }) => {
     try {
       if (!chatId) return;
       await addDoc(collection(db, 'chats', chatId, 'respostas'), { etapa, pergunta, resposta, timestamp: serverTimestamp() });
     } catch (e) { console.error('Falha ao salvar resposta do questionário:', e); }
   };
+
   const excluirChat = async (id) => {
     try {
       await deleteDoc(doc(db, 'chats', id));
@@ -110,6 +116,42 @@ function Chat() {
       if (chatId === id) setChatId(null);
     } catch (error) { console.error('Erro ao excluir chat:', error); }
   };
+
+  // 🧹 Limpeza programada de chats vazios com > 30 min
+  const cleanUpEmptyOldChats = async (uid) => {
+    try {
+      if (!uid) return;
+      const cutoffMs = Date.now() - 30 * 60 * 1000; // 30 min
+
+      const q = query(collection(db, 'chats'), where('usuario_id', '==', uid));
+      const snap = await getDocs(q);
+
+      for (const chatDoc of snap.docs) {
+        // não apagar o chat aberto
+        if (chatDoc.id === chatId) continue;
+
+        const data = chatDoc.data();
+        const criado = data?.criado_em?.toDate ? data.criado_em.toDate() : null;
+        if (!criado || criado.getTime() > cutoffMs) continue; // ainda recente
+
+        // checa se não há mensagens
+        const msgsSnap = await getDocs(query(collection(db, 'chats', chatDoc.id, 'mensagens'), limit(1)));
+        if (msgsSnap.empty) {
+          await excluirChat(chatDoc.id);
+        }
+      }
+    } catch (err) {
+      console.error('Erro na limpeza programada:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (!userId) return;
+    cleanUpEmptyOldChats(userId); // roda 1x ao montar / mudar userId
+    const int = setInterval(() => cleanUpEmptyOldChats(userId), 10 * 60 * 1000); // a cada 10 min
+    return () => clearInterval(int);
+  }, [userId]); // eslint-disable-line
+
   const openDeleteModal = (id, title) => setConfirmDelete({ open: true, chatId: id, title });
   const closeDeleteModal = () => setConfirmDelete({ open: false, chatId: null, title: '' });
   const confirmDeleteChat = async () => { if (!confirmDelete.chatId) return; await excluirChat(confirmDelete.chatId); closeDeleteModal(); };
@@ -128,6 +170,7 @@ function Chat() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+
   const scrollToBottom = () => {
     setTimeout(() => {
       const chatContainer = document.getElementById('chatContainer');
@@ -187,48 +230,50 @@ function Chat() {
   };
 
   // Auth + histórico
-  // Auth + histórico
-useEffect(() => {
-  const unsubscribe = onAuthStateChanged(auth, async (user) => {
-    if (!user) {
-      setIsUserLoggedIn(false); setUserId(null); setChatId(null);
-      return;
-    }
-    setIsUserLoggedIn(true); setUserId(user.uid); setUserPhoto(user.photoURL || '/iconevazio.png');
-    try {
-      const q = query(collection(db, 'chats'), where('usuario_id', '==', user.uid));
-      const querySnapshot = await getDocs(q);
-      const lista = [];
-      for (const docSnap of querySnapshot.docs) {
-        const dados = { id: docSnap.id, ...docSnap.data() };
-        const msgsSnap = await getDocs(query(collection(db, 'chats', docSnap.id, 'mensagens'), orderBy('timestamp', 'asc')));
-        if (msgsSnap.empty) { await excluirChat(docSnap.id); } else { lista.push(dados); }
-      }
-      lista.sort((a, b) => {
-        const da = a?.criado_em?.toDate ? a.criado_em.toDate().getTime() : 0;
-        const db_ = b?.criado_em?.toDate ? b.criado_em.toDate().getTime() : 0;
-        return db_ - da;
-      });
-      setHistoricoChats(lista);
-
-      // >>> NOVO: abrir o chat pelo query param ?id= <<<
-      const urlId = searchParams.get('id');
-      if (urlId && lista.some(c => c.id === urlId)) {
-        await carregarChat(urlId);
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        setIsUserLoggedIn(false); setUserId(null); setChatId(null);
         return;
       }
+      setIsUserLoggedIn(true); setUserId(user.uid); setUserPhoto(user.photoURL || '/iconevazio.png');
+      try {
+        const q = query(collection(db, 'chats'), where('usuario_id', '==', user.uid));
+        const querySnapshot = await getDocs(q);
+        const lista = [];
+        for (const docSnap of querySnapshot.docs) {
+          const dados = { id: docSnap.id, ...docSnap.data() };
+          // ⚠️ NÃO apagar chats vazios aqui!
+          const msgsSnap = await getDocs(query(collection(db, 'chats', docSnap.id, 'mensagens'), limit(1)));
+          const _empty = msgsSnap.empty;
+          lista.push({ ...dados, _empty });
+        }
+        // ordena por criado_em desc
+        lista.sort((a, b) => {
+          const da = a?.criado_em?.toDate ? a.criado_em.toDate().getTime() : 0;
+          const db_ = b?.criado_em?.toDate ? b.criado_em.toDate().getTime() : 0;
+          return db_ - da;
+        });
+        setHistoricoChats(lista);
 
-      if (lista.length === 0) {
-        await criarNovoChat(user.uid);
-      } else if (!chatId) {
-        await carregarChat(lista[0].id);
-      }
-    } catch (error) { console.error('Erro ao buscar chats:', error); }
-  });
-  return () => unsubscribe();
-}, []); // eslint-disable-line
+        // abre por query param ?id= se existir
+        const urlId = searchParams.get('id');
+        if (urlId && lista.some(c => c.id === urlId)) {
+          await carregarChat(urlId);
+          return;
+        }
 
+        if (lista.length === 0) {
+          await criarNovoChat(user.uid);
+        } else if (!chatId) {
+          await carregarChat(lista[0].id);
+        }
+      } catch (error) { console.error('Erro ao buscar chats:', error); }
+    });
+    return () => unsubscribe();
+  }, []); // eslint-disable-line
 
+  // ✅ Criar novo chat SEM race condition: persistir msgs com chatRef.id
   const criarNovoChat = async (uid = userId) => {
     try {
       const agora = new Date();
@@ -237,18 +282,28 @@ useEffect(() => {
         usuario_id: uid, criado_em: serverTimestamp(), titulo: tituloPadrao, bloqueado: false, bloqueado_em: null
       });
 
-      setChatId(chatRef.id);
-      setMessages([{ sender: 'bot', text: 'Olá! Antes de usar a IA, vamos passar por um questionário rápido para entender melhor seu perfil. Tudo bem?' }]);
+      // Persistir as 2 primeiras mensagens USANDO chatRef.id (não depende de chatId do estado)
+      const welcome = 'Olá! Antes de usar a IA, vamos passar por um questionário rápido para entender melhor seu perfil. Tudo bem?';
       const primeira = QUESTIONARIO[0];
-      enqueueBot(`${primeira.etapa}\n${primeira.objetivo}\n\n${primeira.perguntas[0]}`);
+      const primeiraPerg = `${primeira.etapa}\n${primeira.objetivo}\n\n${primeira.perguntas[0]}`;
 
+      await addDoc(collection(db, 'chats', chatRef.id, 'mensagens'), { tipo: 'resposta', conteudo: welcome, timestamp: serverTimestamp() });
+      await addDoc(collection(db, 'chats', chatRef.id, 'mensagens'), { tipo: 'resposta', conteudo: primeiraPerg, timestamp: serverTimestamp() });
+
+      // Atualiza estado
+      setChatId(chatRef.id);
+      setMessages([{ sender: 'bot', text: welcome }, { sender: 'bot', text: primeiraPerg }]);
       setModo('questionario'); setEtapaIndex(0); setPerguntaIndex(0);
       setRespostas([]); setIsTestEnded(false);
 
-      setHistoricoChats(prev => [{ id: chatRef.id, usuario_id: uid, titulo: tituloPadrao, criado_em: { toDate: () => agora }, bloqueado: false }, ...prev]);
+      setHistoricoChats(prev => [
+        { id: chatRef.id, usuario_id: uid, titulo: tituloPadrao, criado_em: { toDate: () => agora }, bloqueado: false, _empty: false },
+        ...prev
+      ]);
     } catch (error) { console.error('Erro ao criar chat:', error); }
   };
 
+  // ✅ NUNCA apagar ao abrir; se estiver vazio, apenas mostrar vazio
   const carregarChat = async (id) => {
     setChatId(id);
     try {
@@ -258,7 +313,12 @@ useEffect(() => {
       setIsTestEnded(bloqueado);
 
       const msgsSnap = await getDocs(query(collection(db, 'chats', id, 'mensagens'), orderBy('timestamp', 'asc')));
-      if (msgsSnap.empty) { await excluirChat(id); return; }
+      if (msgsSnap.empty) {
+        setMessages([]); // não deletar
+        setModo('questionario'); setEtapaIndex(0); setPerguntaIndex(0);
+        setRespostas([]);
+        return;
+      }
 
       const mensagens = msgsSnap.docs.map((d) => {
         const data = d.data();
@@ -349,16 +409,14 @@ useEffect(() => {
       <Header />
 
       <main
-    style={{
-      flex: 1,
-      display: 'flex',
-      marginLeft: isMobile ? 0 : `${ASIDE_TOTAL + 10}px`, // ~300px de recuo
-      paddingTop: `${GAP_Y}px`,
-      paddingBottom: `${GAP_Y}px`
-    }}
-  >
-
-
+        style={{
+          flex: 1,
+          display: 'flex',
+          marginLeft: isMobile ? 0 : `${ASIDE_TOTAL + 10}px`,
+          paddingTop: `${GAP_Y}px`,
+          paddingBottom: `${GAP_Y}px`
+        }}
+      >
         <aside
           style={{
             width: isMobile ? '85vw' : '250px',
@@ -372,7 +430,7 @@ useEffect(() => {
             position: 'fixed',
             left: isMobile ? (sidebarOpen ? 0 : '-110%') : 0,
             top: isMobile ? GAP_Y : `${HEADER_H + GAP_Y}px`,
-            bottom: isMobile ? GAP_Y : `${FOOTER_H + GAP_Y}px`, // deixa um vão acima do footer
+            bottom: isMobile ? GAP_Y : `${FOOTER_H + GAP_Y}px`,
             borderRadius: isMobile ? '12px' : '0 12px 12px 0',
             boxShadow: isMobile ? '0 8px 28px rgba(0,0,0,.25)' : '2px 0 6px rgba(0,0,0,0.08)',
             overflowY: 'auto',
@@ -380,75 +438,63 @@ useEffect(() => {
             zIndex: 1085
           }}
         >
-  {/* HEADER DO DRAWER (apenas mobile) */}
-  {isMobile && (
-    <div
-      className="d-flex align-items-center justify-content-start mb-2"
-      style={{
-        position: 'sticky',
-        top: 0,
-        background: '#f5f5f5',
-        zIndex: 2,
-        paddingBottom: '8px'
-      }}
-    >
-      <button
-        className="btn btn-outline-secondary btn-sm rounded-pill"
-        onClick={toggleSidebar}
-        aria-label="Voltar"
-      >
-        <i className="bi bi-arrow-left me-1"></i> Voltar
-      </button>
-    </div>
-  )}
-
-  <h6 className="fw-bold mb-3">Meus Chats</h6>
-
-  {isUserLoggedIn ? (
-    <>
-      {historicoChats.map((c) => (
-        <div key={c.id} className="d-flex align-items-center">
-          <button
-            className={`chat-btn ${c.id === chatId ? 'active' : ''}`}
-            onClick={() => carregarChatMobile(c.id)}
-            title={tituloDoChat(c)}
-            style={{ flex: 1 }}
-          >
-            {tituloDoChat(c)}
-          </button>
-
-          <div className="d-flex align-items-center gap-2" style={{ marginLeft: '8px' }}>
-            <button
-              className={`btn btn-sm ${c.bloqueado ? 'btn-outline-secondary' : 'btn-outline-warning'}`}
-              onClick={() => setBloqueioChat(c.id, !c.bloqueado)}
-              title={c.bloqueado ? 'Destrancar chat' : 'Trancar chat'}
+          {isMobile && (
+            <div
+              className="d-flex align-items-center justify-content-start mb-2"
+              style={{ position: 'sticky', top: 0, background: '#f5f5f5', zIndex: 2, paddingBottom: '8px' }}
             >
-              <i className={`bi ${c.bloqueado ? 'bi-unlock' : 'bi-lock'}`}></i>
-            </button>
+              <button className="btn btn-outline-secondary btn-sm rounded-pill" onClick={toggleSidebar} aria-label="Voltar">
+                <i className="bi bi-arrow-left me-1"></i> Voltar
+              </button>
+            </div>
+          )}
 
-            <button
-              className="btn btn-sm btn-danger"
-              onClick={() => openDeleteModal(c.id, tituloDoChat(c))}
-              title="Excluir chat"
-            >
-              <i className="bi bi-trash"></i>
-            </button>
-          </div>
-        </div>
-      ))}
+          <h6 className="fw-bold mb-3">Meus Chats</h6>
 
-      <button className="chat-btn novo" onClick={() => criarNovoChat()}>
-        + Novo Chat
-      </button>
-    </>
-  ) : (
-    <>
-      <div className="text-muted small">Entre para ver seus chats.</div>
-      <button className="chat-btn novo disabled w-100" disabled>+ Novo Chat</button>
-    </>
-  )}
-</aside>
+          {isUserLoggedIn ? (
+            <>
+              {historicoChats.map((c) => (
+                <div key={c.id} className="d-flex align-items-center">
+                  <button
+                    className={`chat-btn ${c.id === chatId ? 'active' : ''}`}
+                    onClick={() => carregarChatMobile(c.id)}
+                    title={tituloDoChat(c)}
+                    style={{ flex: 1 }}
+                  >
+                    {tituloDoChat(c)} {c._empty && <span className="badge bg-secondary ms-2">vazio</span>}
+                  </button>
 
+                  <div className="d-flex align-items-center gap-2" style={{ marginLeft: '8px' }}>
+                    <button
+                      className={`btn btn-sm ${c.bloqueado ? 'btn-outline-secondary' : 'btn-outline-warning'}`}
+                      onClick={() => setBloqueioChat(c.id, !c.bloqueado)}
+                      title={c.bloqueado ? 'Destrancar chat' : 'Trancar chat'}
+                    >
+                      <i className={`bi ${c.bloqueado ? 'bi-unlock' : 'bi-lock'}`}></i>
+                    </button>
+
+                    <button
+                      className="btn btn-sm btn-danger"
+                      onClick={() => openDeleteModal(c.id, tituloDoChat(c))}
+                      title="Excluir chat"
+                    >
+                      <i className="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              <button className="chat-btn novo" onClick={() => criarNovoChat()}>
+                + Novo Chat
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="text-muted small">Entre para ver seus chats.</div>
+              <button className="chat-btn novo disabled w-100" disabled>+ Novo Chat</button>
+            </>
+          )}
+        </aside>
 
         {isMobile && sidebarOpen && (
           <div className="drawer-backdrop" onClick={toggleSidebar} aria-hidden="true" style={{ zIndex: 1080 }} />
@@ -459,16 +505,12 @@ useEffect(() => {
           style={{ paddingTop: '0px', minHeight: `calc(100vh - ${HEADER_H}px)`, display: 'flex', flexDirection: 'column' }}
         >
           {isMobile && (
-            <div
-              className="mobile-toolbar d-flex align-items-center gap-2 mb-3"
-              style={{ marginTop: '12px' }}   // ajuste aqui (12px, 16px, etc.)
-            >
+            <div className="mobile-toolbar d-flex align-items-center gap-2 mb-3" style={{ marginTop: '12px' }}>
               <button className="btn btn-outline-primary rounded-pill btn-sm mobile-chats-btn" onClick={toggleSidebar} aria-label="Abrir lista de chats">
                 <i className="bi bi-list me-1"></i> Chats
               </button>
             </div>
           )}
-
 
           {!isUserLoggedIn && (
             <div className="alert alert-warning rounded-4 shadow-sm d-flex flex-column align-items-center text-center">
@@ -477,13 +519,14 @@ useEffect(() => {
             </div>
           )}
 
-
-          {/* Aviso/guia */}
-          <div className="alert text-center rounded-4 shadow-sm p-4" style={{ backgroundColor: '#e3f2fd', color: '#0d47a1', marginTop: '8px', marginBottom: '12px' }}>
+          <div
+            className="alert text-center rounded-4 shadow-sm p-4"
+            style={{ backgroundColor: '#e3f2fd', color: '#0d47a1', marginTop: '8px', marginBottom: '12px' }}
+          >
             <h5 className="mb-2 fw-bold">Como funciona o teste vocacional?</h5>
             <p className="mb-0">
-              {emQuestionario ? (
-                <>Primeiro, você responde um questionário estruturado. Em seguida, a IA analisa seu perfil e oferece sugestões de carreiras.<br /><strong>Progresso:</strong> {respondidas}/{totalPerguntas}</>
+              {modo === 'questionario' ? (
+                <>Primeiro, você responde um questionário estruturado. Em seguida, a IA analisa seu perfil e oferece sugestões de carreiras.<br /><strong>Progresso:</strong> {respostas.length}/{QUESTIONARIO.reduce((a, c) => a + c.perguntas.length, 0)}</>
               ) : (
                 <>Converse com nosso assistente sobre seus interesses. A inteligência artificial analisará suas respostas e recomendará áreas profissionais ideais para você.<br /><strong>Dica:</strong> você pode digitar <strong>"encerrar teste"</strong> a qualquer momento para terminar e ver o resultado.</>
               )}
@@ -536,7 +579,7 @@ useEffect(() => {
             <textarea
               ref={textareaRef}
               className="form-control rounded-pill px-4 text-start"
-              placeholder={emQuestionario ? 'Responda à pergunta...' : 'Digite algo...'}
+              placeholder={modo === 'questionario' ? 'Responda à pergunta...' : 'Digite algo...'}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyPress}
