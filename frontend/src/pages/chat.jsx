@@ -559,19 +559,8 @@ function Chat() {
           </div>
 
           {isTestEnded && (
-            <div className="alert alert-success d-flex justify-content-between align-items-center mt-3">
-              <div><strong>Chat trancado!</strong> Este teste foi encerrado. Você pode visualizar os resultados.</div>
-              <button className="btn btn-outline-secondary btn-sm rounded-pill" onClick={() => setBloqueioChat(chatId, false)}>
-                <i className="bi bi-unlock me-1"></i> Destrancar
-              </button>
-            </div>
-          )}
-
-          {!isTestEnded && (
-            <div className="alert alert-light d-flex justify-content-end align-items-center mt-3 border">
-              <button className="btn btn-outline-warning btn-sm rounded-pill" onClick={() => setBloqueioChat(chatId, true)} title="Trancar chat">
-                <i className="bi bi-lock me-1"></i> Trancar
-              </button>
+            <div className="alert alert-success mt-3">
+              <strong>Chat trancado!</strong> Este teste foi encerrado. (Use o botão ao lado do chat na lista para destrancar, se precisar.)
             </div>
           )}
 
