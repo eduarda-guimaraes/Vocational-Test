@@ -5,6 +5,13 @@ node_modules/
 dist/
 build/
 
+# Firebase cache dentro do frontend
+/frontend/.firebase/
+/frontend/.firebase/**
+
+# Arquivos de cache do Firebase Hosting dentro do frontend
+/frontend/*.cache
+
 # build do frontend
 frontend/dist/
 
