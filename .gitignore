@@ -8,6 +8,7 @@ build/
 # Firebase cache dentro do frontend
 /frontend/.firebase/
 /frontend/.firebase/**
+.firebase/
 
 # Arquivos de cache do Firebase Hosting dentro do frontend
 /frontend/*.cache
