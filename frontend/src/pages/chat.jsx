@@ -4,16 +4,19 @@ import '../styles/global.css';
 import '../styles/form.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
-
 import { auth, db } from '../services/firebase';
 import {
   collection, addDoc, serverTimestamp, query, where,
   getDocs, orderBy, deleteDoc, doc, updateDoc, getDoc
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { Link } from 'react-router-dom';
-
+import { Link, useSearchParams } from 'react-router-dom';
 const HEADER_H = 72;
+const GAP_Y = 16;
+const FOOTER_H = 80; // altura aproximada do rodapé azul-
+const ASIDE_W = 250;     // largura do card
+const ASIDE_PAD = 20;    // padding (left/right) do card
+const ASIDE_TOTAL = ASIDE_W + ASIDE_PAD * 2; // 290px
 
 const QUESTIONARIO = [
   { etapa: 'ETAPA 1 – AUTOCONHECIMENTO', objetivo: 'Entender o perfil pessoal, interesses e habilidades naturais.', perguntas: [
@@ -55,6 +58,8 @@ function Chat() {
   const [userPhoto, setUserPhoto] = useState('/iconevazio.png');
   const [isUserLoggedIn, setIsUserLoggedIn] = useState(true);
   const [historicoChats, setHistoricoChats] = useState([]);
+  const [searchParams] = useSearchParams();
+
 
   // Fluxo do questionário/IA
   const [modo, setModo] = useState('questionario');
@@ -63,15 +68,9 @@ function Chat() {
   const [respostas, setRespostas] = useState([]);
   const [isTestEnded, setIsTestEnded] = useState(false);
   const [respostasAnterioresIA, setRespostasAnterioresIA] = useState([]);
-
-  // Layout
   const textareaRef = useRef(null);
   const [textareaHeight, setTextareaHeight] = useState(50);
-
-  // Modal de confirmação de exclusão
   const [confirmDelete, setConfirmDelete] = useState({ open: false, chatId: null, title: '' });
-
-  // RESPONSIVO
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 992 : false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   useEffect(() => {
@@ -80,13 +79,8 @@ function Chat() {
     return () => window.removeEventListener('resize', onResize);
   }, []);
   const toggleSidebar = () => setSidebarOpen(v => !v);
-
-  // Altura fixa da janela do chat (com rolagem interna)
   const chatBoxHeight = isMobile ? '56vh' : '62vh';
-
   const backendUrl = import.meta.env.VITE_API_URL;
-
-  // Helpers
   const formatarDataCurta = (date) => {
     try {
       return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(date);
@@ -97,8 +91,6 @@ function Chat() {
     const criado = c?.criado_em?.toDate ? c.criado_em.toDate() : null;
     return criado ? `Chat ${formatarDataCurta(criado)}` : `Chat ${c.id?.slice(0, 5)}`;
   };
-
-  // Firestore helpers
   const salvarMensagem = async (tipo, conteudo) => {
     try {
       if (!chatId) return;
@@ -136,8 +128,6 @@ function Chat() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
-
-  // Scroll automático
   const scrollToBottom = () => {
     setTimeout(() => {
       const chatContainer = document.getElementById('chatContainer');
@@ -197,37 +187,47 @@ function Chat() {
   };
 
   // Auth + histórico
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        setIsUserLoggedIn(false); setUserId(null); setChatId(null);
+  // Auth + histórico
+useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      setIsUserLoggedIn(false); setUserId(null); setChatId(null);
+      return;
+    }
+    setIsUserLoggedIn(true); setUserId(user.uid); setUserPhoto(user.photoURL || '/iconevazio.png');
+    try {
+      const q = query(collection(db, 'chats'), where('usuario_id', '==', user.uid));
+      const querySnapshot = await getDocs(q);
+      const lista = [];
+      for (const docSnap of querySnapshot.docs) {
+        const dados = { id: docSnap.id, ...docSnap.data() };
+        const msgsSnap = await getDocs(query(collection(db, 'chats', docSnap.id, 'mensagens'), orderBy('timestamp', 'asc')));
+        if (msgsSnap.empty) { await excluirChat(docSnap.id); } else { lista.push(dados); }
+      }
+      lista.sort((a, b) => {
+        const da = a?.criado_em?.toDate ? a.criado_em.toDate().getTime() : 0;
+        const db_ = b?.criado_em?.toDate ? b.criado_em.toDate().getTime() : 0;
+        return db_ - da;
+      });
+      setHistoricoChats(lista);
+
+      // >>> NOVO: abrir o chat pelo query param ?id= <<<
+      const urlId = searchParams.get('id');
+      if (urlId && lista.some(c => c.id === urlId)) {
+        await carregarChat(urlId);
         return;
       }
-      setIsUserLoggedIn(true); setUserId(user.uid); setUserPhoto(user.photoURL || '/iconevazio.png');
-      try {
-        const q = query(collection(db, 'chats'), where('usuario_id', '==', user.uid));
-        const querySnapshot = await getDocs(q);
-        const lista = [];
-        for (const docSnap of querySnapshot.docs) {
-          const dados = { id: docSnap.id, ...docSnap.data() };
-          const msgsSnap = await getDocs(query(collection(db, 'chats', docSnap.id, 'mensagens'), orderBy('timestamp', 'asc')));
-          if (msgsSnap.empty) { await excluirChat(docSnap.id); } else { lista.push(dados); }
-        }
-        lista.sort((a, b) => {
-          const da = a?.criado_em?.toDate ? a.criado_em.toDate().getTime() : 0;
-          const db_ = b?.criado_em?.toDate ? b?.criado_em?.toDate().getTime() : 0;
-          return db_ - da;
-        });
-        setHistoricoChats(lista);
-        if (lista.length === 0) {
-          await criarNovoChat(user.uid);
-        } else if (!chatId) {
-          await carregarChat(lista[0].id);
-        }
-      } catch (error) { console.error('Erro ao buscar chats:', error); }
-    });
-    return () => unsubscribe();
-  }, []); // eslint-disable-line
+
+      if (lista.length === 0) {
+        await criarNovoChat(user.uid);
+      } else if (!chatId) {
+        await carregarChat(lista[0].id);
+      }
+    } catch (error) { console.error('Erro ao buscar chats:', error); }
+  });
+  return () => unsubscribe();
+}, []); // eslint-disable-line
+
 
   const criarNovoChat = async (uid = userId) => {
     try {
@@ -331,8 +331,7 @@ function Chat() {
     await enqueueBot(data?.resposta || 'Não consegui entender, pode reformular?');
   };
 
-  const handleKeyPress = (e) => { if (e.key === 'Enter' && !e.shiftKey
-) { e.preventDefault(); handleSend(); } };
+  const handleKeyPress = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } };
   const handleInput = () => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -349,8 +348,17 @@ function Chat() {
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Header />
 
-      <main style={{ flex: 1, display: 'flex', marginLeft: isMobile ? 0 : '250px', paddingTop: '12px' }}>
-        {/* Sidebar fixa / Drawer responsivo — AGORA SEMPRE VISÍVEL */}
+      <main
+    style={{
+      flex: 1,
+      display: 'flex',
+      marginLeft: isMobile ? 0 : `${ASIDE_TOTAL + 10}px`, // ~300px de recuo
+      paddingTop: `${GAP_Y}px`,
+      paddingBottom: `${GAP_Y}px`
+    }}
+  >
+
+
         <aside
           style={{
             width: isMobile ? '85vw' : '250px',
@@ -361,92 +369,114 @@ function Chat() {
             display: 'flex',
             flexDirection: 'column',
             gap: '10px',
-            height: isMobile ? '100vh' : `calc(100vh - ${HEADER_H}px)`,
             position: 'fixed',
             left: isMobile ? (sidebarOpen ? 0 : '-110%') : 0,
-            top: isMobile ? 0 : `${HEADER_H}px`,
+            top: isMobile ? GAP_Y : `${HEADER_H + GAP_Y}px`,
+            bottom: isMobile ? GAP_Y : `${FOOTER_H + GAP_Y}px`, // deixa um vão acima do footer
+            borderRadius: isMobile ? '12px' : '0 12px 12px 0',
             boxShadow: isMobile ? '0 8px 28px rgba(0,0,0,.25)' : '2px 0 6px rgba(0,0,0,0.08)',
             overflowY: 'auto',
             transition: 'left .25s ease',
             zIndex: 1085
           }}
         >
-          <h6 className="fw-bold mb-3">Meus Chats</h6>
+  {/* HEADER DO DRAWER (apenas mobile) */}
+  {isMobile && (
+    <div
+      className="d-flex align-items-center justify-content-start mb-2"
+      style={{
+        position: 'sticky',
+        top: 0,
+        background: '#f5f5f5',
+        zIndex: 2,
+        paddingBottom: '8px'
+      }}
+    >
+      <button
+        className="btn btn-outline-secondary btn-sm rounded-pill"
+        onClick={toggleSidebar}
+        aria-label="Voltar"
+      >
+        <i className="bi bi-arrow-left me-1"></i> Voltar
+      </button>
+    </div>
+  )}
 
-          {isUserLoggedIn ? (
-            <>
-              {historicoChats.map((c) => (
-                <div key={c.id} className="d-flex align-items-center">
-                  <button
-                    className={`chat-btn ${c.id === chatId ? 'active' : ''}`}
-                    onClick={() => carregarChatMobile(c.id)}
-                    title={tituloDoChat(c)}
-                    style={{ flex: 1 }}
-                  >
-                    {tituloDoChat(c)}
-                  </button>
+  <h6 className="fw-bold mb-3">Meus Chats</h6>
 
-                  <div className="d-flex align-items-center gap-2" style={{ marginLeft: '8px' }}>
-                    <button
-                      className={`btn btn-sm ${c.bloqueado ? 'btn-outline-secondary' : 'btn-outline-warning'}`}
-                      onClick={() => setBloqueioChat(c.id, !c.bloqueado)}
-                      title={c.bloqueado ? 'Destrancar chat' : 'Trancar chat'}
-                    >
-                      <i className={`bi ${c.bloqueado ? 'bi-unlock' : 'bi-lock'}`}></i>
-                    </button>
+  {isUserLoggedIn ? (
+    <>
+      {historicoChats.map((c) => (
+        <div key={c.id} className="d-flex align-items-center">
+          <button
+            className={`chat-btn ${c.id === chatId ? 'active' : ''}`}
+            onClick={() => carregarChatMobile(c.id)}
+            title={tituloDoChat(c)}
+            style={{ flex: 1 }}
+          >
+            {tituloDoChat(c)}
+          </button>
 
-                    <button
-                      className="btn btn-sm btn-danger"
-                      onClick={() => openDeleteModal(c.id, tituloDoChat(c))}
-                      title="Excluir chat"
-                    >
-                      <i className="bi bi-trash"></i>
-                    </button>
-                  </div>
-                </div>
-              ))}
+          <div className="d-flex align-items-center gap-2" style={{ marginLeft: '8px' }}>
+            <button
+              className={`btn btn-sm ${c.bloqueado ? 'btn-outline-secondary' : 'btn-outline-warning'}`}
+              onClick={() => setBloqueioChat(c.id, !c.bloqueado)}
+              title={c.bloqueado ? 'Destrancar chat' : 'Trancar chat'}
+            >
+              <i className={`bi ${c.bloqueado ? 'bi-unlock' : 'bi-lock'}`}></i>
+            </button>
 
-              <button className="chat-btn novo" onClick={() => criarNovoChat()}>
-                + Novo Chat
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="text-muted small">Entre para ver seus chats.</div>
-              <button className="chat-btn novo disabled w-100" disabled>+ Novo Chat</button>
-              <Link to="/login" className="btn btn-outline-primary rounded-pill mt-2">Fazer login</Link>
-            </>
-          )}
-        </aside>
+            <button
+              className="btn btn-sm btn-danger"
+              onClick={() => openDeleteModal(c.id, tituloDoChat(c))}
+              title="Excluir chat"
+            >
+              <i className="bi bi-trash"></i>
+            </button>
+          </div>
+        </div>
+      ))}
 
-        {/* Overlay/backdrop quando o drawer está aberto no mobile */}
+      <button className="chat-btn novo" onClick={() => criarNovoChat()}>
+        + Novo Chat
+      </button>
+    </>
+  ) : (
+    <>
+      <div className="text-muted small">Entre para ver seus chats.</div>
+      <button className="chat-btn novo disabled w-100" disabled>+ Novo Chat</button>
+    </>
+  )}
+</aside>
+
+
         {isMobile && sidebarOpen && (
           <div className="drawer-backdrop" onClick={toggleSidebar} aria-hidden="true" style={{ zIndex: 1080 }} />
         )}
 
-        {/* Área principal do chat */}
         <div
           className="container py-4 flex-grow-1 chat-container"
           style={{ paddingTop: '0px', minHeight: `calc(100vh - ${HEADER_H}px)`, display: 'flex', flexDirection: 'column' }}
         >
-          {/* Barra superior no mobile (botão para abrir a lista) */}
           {isMobile && (
-            <div className="mobile-toolbar d-flex align-items-center gap-2 mb-3">
+            <div
+              className="mobile-toolbar d-flex align-items-center gap-2 mb-3"
+              style={{ marginTop: '12px' }}   // ajuste aqui (12px, 16px, etc.)
+            >
               <button className="btn btn-outline-primary rounded-pill btn-sm mobile-chats-btn" onClick={toggleSidebar} aria-label="Abrir lista de chats">
                 <i className="bi bi-list me-1"></i> Chats
               </button>
             </div>
           )}
 
+
           {!isUserLoggedIn && (
             <div className="alert alert-warning rounded-4 shadow-sm d-flex flex-column align-items-center text-center">
               <div className="mb-2">Atenção: Você precisa estar logado para iniciar o teste vocacional.</div>
-              <div className="d-flex gap-2">
-                <Link to="/login" className="btn btn-primary rounded-pill px-4">Fazer login</Link>
-                <Link to="/perfil" className="btn btn-outline-secondary rounded-pill px-4">Ir para o perfil</Link>
-              </div>
+              <Link to="/login" className="btn btn-primary rounded-pill px-4">Fazer login</Link>
             </div>
           )}
+
 
           {/* Aviso/guia */}
           <div className="alert text-center rounded-4 shadow-sm p-4" style={{ backgroundColor: '#e3f2fd', color: '#0d47a1', marginTop: '8px', marginBottom: '12px' }}>
@@ -460,7 +490,6 @@ function Chat() {
             </p>
           </div>
 
-          {/* Caixa do chat */}
           <div
             className="chat-box p-3"
             style={{
