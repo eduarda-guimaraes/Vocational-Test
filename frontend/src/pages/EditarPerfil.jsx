@@ -2,15 +2,13 @@ import React, { useEffect, useState } from 'react';
 import {
   updateProfile,
   updatePassword,
-  updateEmail,
   reauthenticateWithCredential,
   EmailAuthProvider,
   deleteUser,
-  reauthenticateWithPopup,
-  sendEmailVerification
+  reauthenticateWithPopup
 } from 'firebase/auth';
 import { auth, db, provider } from '../services/firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 export default function EditarPerfil() {
@@ -21,7 +19,6 @@ export default function EditarPerfil() {
   const user = auth.currentUser;
 
   const [nome, setNome] = useState(user?.displayName || '');
-  const [email, setEmail] = useState(user?.email || '');
   const [dataNascimento, setDataNascimento] = useState('');
   const [fotoPreview, setFotoPreview] = useState(user?.photoURL || '/iconevazio.png');
   const [novaFotoFile, setNovaFotoFile] = useState(null);
@@ -39,9 +36,13 @@ export default function EditarPerfil() {
   const [mensagem, setMensagem] = useState('');
   const [erro, setErro] = useState('');
   const [erroExcluir, setErroExcluir] = useState('');
+  const [salvando, setSalvando] = useState(false);
 
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
   const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+  // Conta com provedor 'password'?
+  const ehContaComSenha = (auth.currentUser?.providerData || []).some(p => p.providerId === 'password');
 
   useEffect(() => {
     const carregarFirestore = async () => {
@@ -54,9 +55,6 @@ export default function EditarPerfil() {
           const dados = snap.data();
           if (!nome && (u.displayName || dados.nome)) {
             setNome(u.displayName || dados.nome || '');
-          }
-          if (!email && (u.email || dados.email)) {
-            setEmail(u.email || dados.email || '');
           }
           if (dados.dataNascimento) {
             setDataNascimento(dados.dataNascimento);
@@ -73,9 +71,9 @@ export default function EditarPerfil() {
   }, []);
 
   // ====== Helpers ======
-  const emailEhValido = (valor) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor);
   const senhaEhForte = (valor) =>
     !valor || /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{6,}$/.test(valor);
+
   const dataValida = (valor) => {
     if (!valor) return true;
     const hoje = new Date().toISOString().slice(0, 10);
@@ -135,39 +133,68 @@ export default function EditarPerfil() {
     setNovaFotoFile(file);
   };
 
+  // ====== Utilitário de mensagem de erro amigável ======
+  const mapearMensagemErro = (error) => {
+    const code = error?.code || '';
+    const raw = error?.message || '';
+    if (code.startsWith('auth/')) {
+      switch (code) {
+        case 'auth/requires-recent-login':
+          return `Você precisa entrar novamente para concluir esta ação. [${code}] ${raw}`;
+        case 'auth/invalid-credential':
+          return `Senha atual incorreta ou credenciais inválidas. [${code}] ${raw}`;
+        case 'auth/missing-password':
+          return `Informe sua senha atual. [${code}] ${raw}`;
+        default:
+          return `Erro de autenticação. [${code}] ${raw}`;
+      }
+    }
+    if (raw.includes('No document to update') || raw.includes('NOT_FOUND')) {
+      return `Seu perfil ainda não existia no banco. Criamos/atualizamos automaticamente. [${code || 'firestore/not-found'}] ${raw}`;
+    }
+    return `Ocorreu um erro. [${code || 'desconhecido'}] ${raw}`;
+  };
+
   // ====== Salvar ======
   const handleSalvar = async (e) => {
     e.preventDefault();
+    if (salvando) return;
     setMensagem('');
     setErro('');
+    setSalvando(true);
 
     try {
       const u = auth.currentUser;
-      if (!u) throw new Error('Usuário não autenticado.');
+      if (!u) throw new Error('auth/user-not-logged: Usuário não autenticado.');
 
-      const emailNovo = email.trim();
-      const nomeNovo = nome.trim();
-      const emailAlterado = emailNovo !== u.email;
-      const querTrocarSenha = !!novaSenha;
+      const nomeNovo = (nome || '').trim();
 
-      // Descobre se tem ALGUM provedor "password"
-      const temPassword = (u.providerData || []).some(p => p.providerId === 'password');
+      // Validações de formulário
+      if (!dataValida(dataNascimento)) {
+        throw new Error('Data de nascimento inválida (não pode ser futura).');
+      }
+      if (!senhaEhForte(novaSenha)) {
+        throw new Error('A nova senha (se informada) deve ter 6+ caracteres com letras, números e símbolo.');
+      }
 
-      // Validações
-      if (!emailEhValido(emailNovo)) throw new Error('Formato de e-mail inválido.');
-      if (!senhaEhForte(novaSenha)) throw new Error('A nova senha (se informada) deve ter 6+ caracteres com letras, números e símbolo.');
-      if (!dataValida(dataNascimento)) throw new Error('Data de nascimento inválida (não pode ser futura).');
-
-      // Reautenticação quando necessário
-      if (emailAlterado || (querTrocarSenha && temPassword)) {
-        if (temPassword) {
-          if (!senhaAtual) throw new Error('Informe sua senha atual para confirmar alterações.');
+      // >>> REAUTENTICAÇÃO ANTES DE QUALQUER AÇÃO <<<
+      if (ehContaComSenha) {
+        if (!senhaAtual) {
+          // interrompe aqui — nada é salvo
+          const err = new Error('Senha atual é obrigatória para salvar.');
+          err.code = 'auth/missing-password';
+          throw err;
+        }
+        try {
           const cred = EmailAuthProvider.credential(u.email, senhaAtual);
           await reauthenticateWithCredential(u, cred);
-        } else {
-          await reauthenticateWithPopup(u, provider);
+        } catch (reauthErr) {
+          // interrompe aqui — nada é salvo
+          throw reauthErr;
         }
       }
+
+      // A partir daqui a senha atual está validada (para contas com senha)
 
       // Upload de foto (se nova)
       let fotoURL = u.photoURL || null;
@@ -175,107 +202,57 @@ export default function EditarPerfil() {
         fotoURL = await uploadParaCloudinary(novaFotoFile);
       }
 
-      // Atualiza displayName e photoURL
+      // Atualiza displayName e photoURL no Auth
       await updateProfile(u, { displayName: nomeNovo, photoURL: fotoURL });
 
-      // Atualiza e-mail
-      if (emailAlterado) {
-        await updateEmail(u, emailNovo);
-        await sendEmailVerification(u);
-      }
-
-      // Atualiza senha (apenas se tem provedor password e foi informada)
-      if (querTrocarSenha && temPassword) {
+      // Atualiza senha (se informada e conta com senha)
+      if (novaSenha && ehContaComSenha) {
         await updatePassword(u, novaSenha);
       }
 
-      // Atualiza Firestore
+      // Upsert no Firestore
       const ref = doc(db, 'usuarios', u.uid);
       const dados = {
         nome: nomeNovo,
-        email: emailNovo,
         fotoPerfil: fotoURL || null
       };
       if (dataNascimento) dados.dataNascimento = dataNascimento;
-      if (emailAlterado) dados.emailVerificado = false;
 
-      await updateDoc(ref, dados);
+      await setDoc(ref, dados, { merge: true });
 
-      setMensagem(
-        emailAlterado
-          ? 'Alterações salvas! Enviamos um e-mail para confirmar o novo endereço.'
-          : 'Alterações salvas com sucesso!'
-      );
-
+      setMensagem('Alterações salvas com sucesso!');
       setTimeout(() => navigate('/perfil', { state: { voltarPara } }), 300);
     } catch (error) {
       console.error('Erro ao salvar perfil:', error);
-      let msg = 'Erro ao atualizar. ';
-      switch (error.code) {
-        case 'auth/requires-recent-login':
-          msg += 'Faça login novamente para alterar e-mail/senha.';
-          break;
-        case 'auth/email-already-in-use':
-          msg += 'Este e-mail já está em uso.';
-          break;
-        case 'auth/invalid-credential':
-          msg += 'Credenciais inválidas. Verifique sua senha atual.';
-          break;
-        default:
-          msg += error.message || 'Tente novamente.';
-      }
-      setErro(msg);
+      setErro(mapearMensagemErro(error));
+    } finally {
+      setSalvando(false);
     }
   };
 
-  // ====== Exclusão de conta (NÃO pede senha para Google) ======
+  // ====== Exclusão de conta ======
   const confirmarExclusao = async () => {
     setErroExcluir('');
     try {
       const u = auth.currentUser;
-      if (!u) throw new Error('Usuário não autenticado.');
+      if (!u) throw new Error('auth/user-not-logged: Usuário não autenticado.');
 
-      // Checa se há ALGUM provedor "password"
       const temPassword = (u.providerData || []).some(p => p.providerId === 'password');
 
       if (temPassword) {
-        // Conta com e-mail/senha: exige senha
         const cred = EmailAuthProvider.credential(u.email, senhaExcluir);
         await reauthenticateWithCredential(u, cred);
       } else {
-        // Conta Google (ou sem "password"): reautentica via popup, NÃO pede senha
         await reauthenticateWithPopup(u, provider);
       }
 
       await deleteUser(u);
-
-      // Se preferir SDK modular: await signOut(auth);
       await auth.signOut();
-
       navigate('/');
     } catch (error) {
-      let msg = 'Erro ao excluir conta: ';
-      switch (error.code) {
-        case 'auth/missing-password':
-          msg += 'Você precisa informar sua senha (apenas para contas com senha).';
-          break;
-        case 'auth/invalid-credential':
-          msg += 'Senha incorreta.';
-          break;
-        case 'auth/popup-closed-by-user':
-          msg += 'Janela do Google foi fechada antes de confirmar.';
-          break;
-        case 'auth/requires-recent-login':
-          msg += 'Faça login novamente para concluir a exclusão.';
-          break;
-        default:
-          msg += error.message || 'Tente novamente.';
-      }
-      setErroExcluir(msg);
+      setErroExcluir(mapearMensagemErro(error));
     }
   };
-
-  const ehContaComSenha = (auth.currentUser?.providerData || []).some(p => p.providerId === 'password');
 
   return (
     <div className="container d-flex justify-content-center align-items-center py-5">
@@ -308,17 +285,6 @@ export default function EditarPerfil() {
 
           <div className="mb-3">
             <input
-              type="email"
-              className="form-control"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="E-mail"
-              required
-            />
-          </div>
-
-          <div className="mb-3">
-            <input
               type="date"
               className="form-control"
               value={dataNascimento}
@@ -327,24 +293,26 @@ export default function EditarPerfil() {
             />
           </div>
 
-          {/* Senha atual — necessária para alterar e-mail/senha em contas com senha */}
-          <div className="mb-3 position-relative">
-            <input
-              type={mostrarSenhaAtual ? 'text' : 'password'}
-              className="form-control"
-              value={senhaAtual}
-              onChange={(e) => setSenhaAtual(e.target.value)}
-              placeholder="Senha atual (necessária para alterar e-mail/senha)"
-            />
-            <button
-              type="button"
-              className="position-absolute top-50 end-0 translate-middle-y me-2"
-              onClick={() => setMostrarSenhaAtual(!mostrarSenhaAtual)}
-              style={{ backgroundColor: 'transparent', border: 'none' }}
-            >
-              <i className={`bi ${mostrarSenhaAtual ? 'bi-eye' : 'bi-eye-slash'}`} style={{ color: '#447EB8' }}></i>
-            </button>
-          </div>
+          {/* Senha atual — OBRIGATÓRIA para contas com senha */}
+          {ehContaComSenha && (
+            <div className="mb-3 position-relative">
+              <input
+                type={mostrarSenhaAtual ? 'text' : 'password'}
+                className="form-control"
+                value={senhaAtual}
+                onChange={(e) => setSenhaAtual(e.target.value)}
+                placeholder="Senha atual (obrigatória para salvar)"
+              />
+              <button
+                type="button"
+                className="position-absolute top-50 end-0 translate-middle-y me-2"
+                onClick={() => setMostrarSenhaAtual(!mostrarSenhaAtual)}
+                style={{ backgroundColor: 'transparent', border: 'none' }}
+              >
+                <i className={`bi ${mostrarSenhaAtual ? 'bi-eye' : 'bi-eye-slash'}`} style={{ color: '#447EB8' }}></i>
+              </button>
+            </div>
+          )}
 
           {/* Nova senha (opcional) */}
           <div className="mb-3 position-relative">
@@ -365,16 +333,22 @@ export default function EditarPerfil() {
             </button>
           </div>
 
-          {erro && <p className="text-danger">{erro}</p>}
+          {erro && <p className="text-danger" style={{ whiteSpace: 'pre-wrap' }}>{erro}</p>}
           {mensagem && <p className="text-success">{mensagem}</p>}
 
-          <button type="submit" className="btn w-100 mb-2" style={{ backgroundColor: '#447EB8', color: '#fff' }}>
-            Salvar alterações
+          <button
+            type="submit"
+            className="btn w-100 mb-2"
+            style={{ backgroundColor: '#447EB8', color: '#fff' }}
+            disabled={salvando}
+          >
+            {salvando ? 'Salvando...' : 'Salvar alterações'}
           </button>
           <button
             type="button"
             className="btn btn-secondary w-100 mb-3"
             onClick={() => navigate('/perfil', { state: { voltarPara } })}
+            disabled={salvando}
           >
             Voltar
           </button>
@@ -419,7 +393,7 @@ export default function EditarPerfil() {
                   ) : (
                     <p>Você será reautenticado(a) com o Google antes de excluir sua conta.</p>
                   )}
-                  {erroExcluir && <p className="text-danger mt-2">{erroExcluir}</p>}
+                  {erroExcluir && <p className="text-danger mt-2" style={{ whiteSpace: 'pre-wrap' }}>{erroExcluir}</p>}
                 </div>
                 <div className="modal-footer">
                   <button className="btn btn-secondary" onClick={() => setShowModalExcluir(false)}>Cancelar</button>
