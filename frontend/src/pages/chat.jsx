@@ -519,19 +519,56 @@ function Chat() {
             </div>
           )}
 
-          <div
-            className="alert text-center rounded-4 shadow-sm p-4"
-            style={{ backgroundColor: '#e3f2fd', color: '#0d47a1', marginTop: '8px', marginBottom: '12px' }}
-          >
-            <h5 className="mb-2 fw-bold">Como funciona o teste vocacional?</h5>
-            <p className="mb-0">
-              {modo === 'questionario' ? (
-                <>Primeiro, você responde um questionário estruturado. Em seguida, a IA analisa seu perfil e oferece sugestões de carreiras.<br /><strong>Progresso:</strong> {respostas.length}/{QUESTIONARIO.reduce((a, c) => a + c.perguntas.length, 0)}</>
-              ) : (
-                <>Converse com nosso assistente sobre seus interesses. A inteligência artificial analisará suas respostas e recomendará áreas profissionais ideais para você.<br /><strong>Dica:</strong> você pode digitar <strong>"encerrar teste"</strong> a qualquer momento para terminar e ver o resultado.</>
-              )}
-            </p>
+          {/* 🔹 Cabeçalho e progresso sempre visíveis */}
+          <div className="mb-4 text-center">
+            <h5 className="fw-bold mb-2" style={{ color: '#20639B' }}>
+              Teste Vocacional
+            </h5>
+
+            {(() => {
+              // total do questionário quando logado; senão, 1 para exibir barra "zerada"
+              const total = isUserLoggedIn ? totalPerguntas : 1;
+
+              // regras de exibição:
+              // - deslogado: 0 de 1
+              // - logado e em IA (ou teste trancado/finalizado): total de total (100%)
+              // - caso normal: respostas atuais
+              let resp;
+              if (!isUserLoggedIn) {
+                resp = 0;
+              } else if (modo === 'ia' || isTestEnded || respostas.length >= totalPerguntas) {
+                resp = total; // trava em 100%
+              } else {
+                resp = respostas.length;
+              }
+
+              const perc = Math.round((resp / total) * 100);
+              const label = `Pergunta ${resp} de ${total} (${perc}%)`;
+
+              return (
+                <>
+                  <div className="fw-semibold mb-1" style={{ color: '#20639B' }}>
+                    {label}
+                  </div>
+                  <div
+                    className="progress rounded-pill mx-auto"
+                    style={{ height: '10px', maxWidth: '400px', backgroundColor: '#dbe8f0' }}
+                  >
+                    <div
+                      className="progress-bar"
+                      role="progressbar"
+                      style={{ width: `${perc}%`, backgroundColor: '#20639B' }}
+                      aria-valuenow={resp}
+                      aria-valuemin="0"
+                      aria-valuemax={total}
+                    ></div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
+
+
 
           <div
             className="chat-box p-3"
