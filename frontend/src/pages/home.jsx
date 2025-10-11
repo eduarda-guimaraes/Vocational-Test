@@ -23,8 +23,6 @@ function Home() {
           </div>
         </div>
       </div>
-
-     <img src="/banner.png" alt="banner demonstrativo" className="img-fluid w-100 banner" />
 <div className="container my-5"> 
   <div className="row text-center">
     <div className="col-md-4 mb-4">
