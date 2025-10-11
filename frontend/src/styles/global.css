@@ -3,6 +3,18 @@
    ======================= */
 * { padding: 0; margin: 0; box-sizing: border-box; }
 
+
+/* Ajuste para o header fixo não sobrepor o conteúdo */
+body {
+  padding-top: 72px; /* mesma altura do header */
+}
+
+/* Se o menu de chats estiver em um container específico, você também pode garantir espaço nele */
+.chat-container,
+.page-content {
+  margin-top: 1rem; /* dá um respiro visual abaixo do header */
+}
+
 :root{
   --brand-blue:   #447EB8;   /* azul do header e acentos */
   --brand-purple: #9068ba;   /* roxo dos botões de chat */
