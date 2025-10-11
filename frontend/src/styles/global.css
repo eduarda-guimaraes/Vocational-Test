@@ -3,6 +3,18 @@
    ======================= */
 * { padding: 0; margin: 0; box-sizing: border-box; }
 
+
+/* Ajuste para o header fixo não sobrepor o conteúdo */
+body {
+  padding-top: 72px; /* mesma altura do header */
+}
+
+/* Se o menu de chats estiver em um container específico, você também pode garantir espaço nele */
+.chat-container,
+.page-content {
+  margin-top: 1rem; /* dá um respiro visual abaixo do header */
+}
+
 :root{
   --brand-blue:   #447EB8;   /* azul do header e acentos */
   --brand-purple: #9068ba;   /* roxo dos botões de chat */
@@ -30,18 +42,57 @@
   font-weight: 400;
   transition: color 0.3s ease;
 }
+
+/* Mobile (< 992px): menu abaixo do header, alinhado à esquerda
+   — estilize SOMENTE quando estiver aberto (show) */
+@media (max-width: 991.98px) {
+
+  /* só quando aberto */
+  .navbar .navbar-collapse.show {
+    width: 100%;
+    border-top: 1px solid #eee;
+    padding: 0.5rem 1rem;
+  }
+
+  /* layout dos itens só quando aberto */
+  .navbar .navbar-collapse.show .navbar-nav {
+    flex-direction: row;        /* lado a lado */
+    justify-content: flex-start;/* alinhado à esquerda */
+    gap: 14px;
+  }
+
+  /* não force display no estado collapsing (deixe o Bootstrap cuidar) */
+  /* Remova QUALQUER regra que você tenha com:
+     .navbar .collapsing { ... }  ou
+     .navbar .navbar-collapse { display: block; ... } no mobile */
+  
+  .navbar .navbar-collapse .nav-link {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
 .nav-link::after {
   content: '';
   position: absolute;
   bottom: 0; left: 0;
   width: 0; height: 2px;
-  background-color: var(--brand-blue);
+  background-color: var(--brand-blue) !important;
   transition: width 0.3s ease;
 }
-.nav-link:hover { color: var(--brand-blue); }
+.nav-link:hover { 
+  color: var(--brand-blue);
+}
 .nav-link:hover::after,
-.nav-link.active::after { width: 100%; }
-.nav-link.active { color: var(--brand-blue); font-weight: 500; }
+.nav-link.active-link::after {
+  width: 100%;
+}
+
+.nav-link.active-link {
+  color: var(--brand-blue) !important;
+  font-weight: 500;
+}
+
 
 /* Botão "Iniciar Teste" */
 .btn-iniciar-teste {
