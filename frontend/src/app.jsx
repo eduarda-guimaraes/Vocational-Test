@@ -13,6 +13,8 @@ import Historico from './pages/Historico';
 import ProtectedRoute from './components/ProtectedRoute';
 import Header from './components/header';
 import Footer from './components/footer';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap/dist/js/bootstrap.bundle.min.js'; 
 
 function App() {
   return (
