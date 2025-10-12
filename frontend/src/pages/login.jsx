@@ -12,38 +12,41 @@ export default function Login() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setErro(''); // Limpa qualquer erro anterior
+    setErro('');
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, senha);
-      const user = userCredential.user;
-
-      // Recarrega o usuário para garantir que as informações mais recentes sejam usadas
-      await user.reload();
-
-      // Verifica se o email foi verificado
-      if (user.emailVerified) {
-        navigate('/perfil');
-      } else {
-        navigate('/aguardando-verificacao');
-      }
+      const cred = await signInWithEmailAndPassword(auth, email, senha);
+      // Não bloqueia por verificação de e-mail (política atual do projeto)
+      // Se quiser direcionar para outra rota pós-login, ajuste aqui
+      navigate('/perfil');
     } catch (err) {
       console.error('Erro no login:', err);
-      setErro('Email ou senha incorretos ou conta não verificada.');
+      let msg = 'Não foi possível entrar. ';
+      switch (err.code) {
+        case 'auth/invalid-credential':
+        case 'auth/wrong-password':
+          msg += 'E-mail ou senha incorretos.';
+          break;
+        case 'auth/user-not-found':
+          msg += 'Usuário não encontrado.';
+          break;
+        case 'auth/too-many-requests':
+          msg += 'Muitas tentativas. Tente novamente mais tarde.';
+          break;
+        case 'auth/network-request-failed':
+          msg += 'Falha de rede. Verifique sua conexão.';
+          break;
+        default:
+          msg += err.message || 'Tente novamente.';
+      }
+      setErro(msg);
     }
   };
 
   const loginComGoogle = async () => {
     try {
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-      await user.reload();
-
-      if (user.emailVerified) {
-        navigate('/perfil');
-      } else {
-        navigate('/aguardando-verificacao');
-      }
+      await signInWithPopup(auth, provider);
+      navigate('/perfil');
     } catch (error) {
       console.error(error);
       setErro('Erro ao fazer login com o Google.');

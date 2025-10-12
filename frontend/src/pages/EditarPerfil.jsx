@@ -5,7 +5,9 @@ import {
   reauthenticateWithCredential,
   EmailAuthProvider,
   deleteUser,
-  reauthenticateWithPopup
+  reauthenticateWithPopup,
+  linkWithCredential,
+  sendEmailVerification
 } from 'firebase/auth';
 import { auth, db, provider } from '../services/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -16,18 +18,20 @@ export default function EditarPerfil() {
   const location = useLocation();
   const voltarPara = location.state?.voltarPara || 'perfil';
 
-  const user = auth.currentUser;
+  const u0 = auth.currentUser;
 
-  const [nome, setNome] = useState(user?.displayName || '');
+  const [nome, setNome] = useState(u0?.displayName || '');
   const [dataNascimento, setDataNascimento] = useState('');
-  const [fotoPreview, setFotoPreview] = useState(user?.photoURL || '/iconevazio.png');
+  const [fotoPreview, setFotoPreview] = useState(u0?.photoURL || '/iconevazio.png');
   const [novaFotoFile, setNovaFotoFile] = useState(null);
 
+  const [senhaAtual, setSenhaAtual] = useState('');  // exigida para contas com senha
   const [novaSenha, setNovaSenha] = useState('');
-  const [senhaAtual, setSenhaAtual] = useState('');
+  const [confirmNovaSenha, setConfirmNovaSenha] = useState('');
 
-  const [mostrarSenha, setMostrarSenha] = useState(false);
   const [mostrarSenhaAtual, setMostrarSenhaAtual] = useState(false);
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [mostrarConfirmSenha, setMostrarConfirmSenha] = useState(false);
 
   const [showModalExcluir, setShowModalExcluir] = useState(false);
   const [senhaExcluir, setSenhaExcluir] = useState('');
@@ -38,39 +42,38 @@ export default function EditarPerfil() {
   const [erroExcluir, setErroExcluir] = useState('');
   const [salvando, setSalvando] = useState(false);
 
+  const [emailDaConta, setEmailDaConta] = useState(u0?.email || '');
+
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
   const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
-  // Conta com provedor 'password'?
   const ehContaComSenha = (auth.currentUser?.providerData || []).some(p => p.providerId === 'password');
+  const ehContaGoogleSemSenha = !ehContaComSenha; // sem 'password' => Google-only
 
   useEffect(() => {
-    const carregarFirestore = async () => {
+    const carregar = async () => {
       try {
         const u = auth.currentUser;
         if (!u) return;
+
+        setEmailDaConta(u.email || '');
+
         const ref = doc(db, 'usuarios', u.uid);
         const snap = await getDoc(ref);
         if (snap.exists()) {
           const dados = snap.data();
-          if (!nome && (u.displayName || dados.nome)) {
-            setNome(u.displayName || dados.nome || '');
-          }
-          if (dados.dataNascimento) {
-            setDataNascimento(dados.dataNascimento);
-          }
-          if (!u.photoURL && dados.fotoPerfil) {
-            setFotoPreview(dados.fotoPerfil);
-          }
+          if (!nome && (u.displayName || dados.nome)) setNome(u.displayName || dados.nome || '');
+          if (dados.dataNascimento) setDataNascimento(dados.dataNascimento);
+          if (!u.photoURL && dados.fotoPerfil) setFotoPreview(dados.fotoPerfil);
         }
       } catch (e) {
-        console.error('Falha ao buscar Firestore:', e);
+        console.error('Falha ao carregar perfil:', e);
       }
     };
-    carregarFirestore();
+    carregar();
   }, []);
 
-  // ====== Helpers ======
+  // ===== Helpers =====
   const senhaEhForte = (valor) =>
     !valor || /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{6,}$/.test(valor);
 
@@ -80,82 +83,59 @@ export default function EditarPerfil() {
     return valor <= hoje;
   };
 
-  // ====== Cloudinary upload ======
+  const mapearMensagemErro = (error) => {
+    const code = error?.code || '';
+    switch (code) {
+      case 'auth/requires-recent-login':
+        return 'Faça login novamente para concluir esta ação.';
+      case 'auth/invalid-credential':
+      case 'auth/wrong-password':
+        return 'Senha atual incorreta.';
+      case 'auth/missing-password':
+        return 'Informe sua senha atual.';
+      case 'auth/popup-closed-by-user':
+        return 'Popup do Google foi fechado antes de confirmar.';
+      case 'auth/popup-blocked':
+        return 'Popup do Google bloqueado pelo navegador.';
+      case 'auth/operation-not-allowed':
+        return 'Login por e-mail/senha não está habilitado no Firebase.';
+      case 'auth/credential-already-in-use':
+        return 'Esta credencial já está em uso.';
+      default:
+        return error?.message || 'Ocorreu um erro. Tente novamente.';
+    }
+  };
+
+  // ===== Cloudinary =====
   const uploadParaCloudinary = async (file) => {
     if (!file) throw new Error('Nenhum arquivo selecionado.');
-    if (!cloudName || !uploadPreset) {
-      throw new Error('Cloudinary não configurado. Verifique VITE_CLOUDINARY_CLOUD_NAME e VITE_CLOUDINARY_UPLOAD_PRESET.');
-    }
-    if (!file.type?.startsWith('image/')) {
-      throw new Error('Selecione um arquivo de imagem válido.');
-    }
+    if (!cloudName || !uploadPreset) throw new Error('Cloudinary não configurado.');
+    if (!file.type?.startsWith('image/')) throw new Error('Selecione um arquivo de imagem válido.');
     const LIMITE_MB = 5;
-    if (file.size > LIMITE_MB * 1024 * 1024) {
-      throw new Error(`Imagem muito grande. Máximo ${LIMITE_MB}MB.`);
-    }
+    if (file.size > LIMITE_MB * 1024 * 1024) throw new Error(`Imagem muito grande. Máximo ${LIMITE_MB}MB.`);
 
     const form = new FormData();
     form.append('file', file);
     form.append('upload_preset', uploadPreset);
 
-    const resp = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-      method: 'POST',
-      body: form
-    });
-
-    if (!resp.ok) {
-      let detalhe = '';
-      try {
-        const txt = await resp.text();
-        detalhe = txt?.slice(0, 400);
-      } catch {}
-      throw new Error(`Falha no upload Cloudinary (HTTP ${resp.status}). ${detalhe}`);
-    }
-
+    const resp = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: form });
+    if (!resp.ok) throw new Error(`Falha no upload (HTTP ${resp.status}).`);
     const data = await resp.json();
-    if (!data?.secure_url) {
-      throw new Error('Resposta do Cloudinary sem secure_url.');
-    }
+    if (!data?.secure_url) throw new Error('Resposta do Cloudinary sem secure_url.');
     return data.secure_url;
   };
 
-  // ====== Manipulação de imagem ======
   const handleFotoChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setErro('Selecione um arquivo de imagem válido.');
-      return;
-    }
+    if (!file.type.startsWith('image/')) return setErro('Selecione um arquivo de imagem válido.');
     const reader = new FileReader();
     reader.onloadend = () => setFotoPreview(reader.result);
     reader.readAsDataURL(file);
     setNovaFotoFile(file);
   };
 
-  // ====== Utilitário de mensagem de erro amigável ======
-  const mapearMensagemErro = (error) => {
-    const code = error?.code || '';
-    const raw = error?.message || '';
-    if (code.startsWith('auth/')) {
-      switch (code) {
-        case 'auth/requires-recent-login':
-          return `Você precisa entrar novamente para concluir esta ação. [${code}] ${raw}`;
-        case 'auth/invalid-credential':
-          return `Senha atual incorreta ou credenciais inválidas. [${code}] ${raw}`;
-        case 'auth/missing-password':
-          return `Informe sua senha atual. [${code}] ${raw}`;
-        default:
-          return `Erro de autenticação. [${code}] ${raw}`;
-      }
-    }
-    if (raw.includes('No document to update') || raw.includes('NOT_FOUND')) {
-      return `Seu perfil ainda não existia no banco. Criamos/atualizamos automaticamente. [${code || 'firestore/not-found'}] ${raw}`;
-    }
-    return `Ocorreu um erro. [${code || 'desconhecido'}] ${raw}`;
-  };
-
-  // ====== Salvar ======
+  // ===== Salvar =====
   const handleSalvar = async (e) => {
     e.preventDefault();
     if (salvando) return;
@@ -165,78 +145,83 @@ export default function EditarPerfil() {
 
     try {
       const u = auth.currentUser;
-      if (!u) throw new Error('auth/user-not-logged: Usuário não autenticado.');
+      if (!u) throw new Error('Usuário não autenticado.');
 
       const nomeNovo = (nome || '').trim();
+      const querSenha = !!novaSenha;
 
-      // Validações de formulário
-      if (!dataValida(dataNascimento)) {
-        throw new Error('Data de nascimento inválida (não pode ser futura).');
-      }
-      if (!senhaEhForte(novaSenha)) {
-        throw new Error('A nova senha (se informada) deve ter 6+ caracteres com letras, números e símbolo.');
-      }
+      // Validações simples
+      if (!dataValida(dataNascimento)) throw new Error('Data de nascimento inválida.');
+      if (!senhaEhForte(novaSenha)) throw new Error('A nova senha deve ter 6+ caracteres, letras, números e símbolo.');
+      if (querSenha && novaSenha !== confirmNovaSenha) throw new Error('A confirmação da nova senha não confere.');
 
-      // >>> REAUTENTICAÇÃO ANTES DE QUALQUER AÇÃO <<<
+      // Regras por tipo de conta
       if (ehContaComSenha) {
+        // Para salvar QUALQUER alteração exige senha atual (política definida)
         if (!senhaAtual) {
-          // interrompe aqui — nada é salvo
           const err = new Error('Senha atual é obrigatória para salvar.');
           err.code = 'auth/missing-password';
           throw err;
         }
-        try {
-          const cred = EmailAuthProvider.credential(u.email, senhaAtual);
-          await reauthenticateWithCredential(u, cred);
-        } catch (reauthErr) {
-          // interrompe aqui — nada é salvo
-          throw reauthErr;
+        const cred = EmailAuthProvider.credential(u.email, senhaAtual);
+        await reauthenticateWithCredential(u, cred);
+      } else if (querSenha) {
+        // Conta Google criando senha:
+        // 1) Checa/verifica e-mail automaticamente
+        await u.reload();
+        if (!u.emailVerified) {
+          await sendEmailVerification(u);
+          throw new Error('Enviei um link de verificação para seu e-mail. Confirme e, depois, clique em Salvar novamente.');
         }
+        // 2) Reautentica via popup do Google
+        await reauthenticateWithPopup(u, provider);
       }
 
-      // A partir daqui a senha atual está validada (para contas com senha)
-
-      // Upload de foto (se nova)
+      // Upload de foto (se houver)
       let fotoURL = u.photoURL || null;
-      if (novaFotoFile) {
-        fotoURL = await uploadParaCloudinary(novaFotoFile);
-      }
+      if (novaFotoFile) fotoURL = await uploadParaCloudinary(novaFotoFile);
 
-      // Atualiza displayName e photoURL no Auth
+      // Atualiza nome/foto
       await updateProfile(u, { displayName: nomeNovo, photoURL: fotoURL });
 
-      // Atualiza senha (se informada e conta com senha)
-      if (novaSenha && ehContaComSenha) {
-        await updatePassword(u, novaSenha);
+      // Atualiza/cria senha
+      if (querSenha) {
+        if (ehContaComSenha) {
+          await updatePassword(u, novaSenha);
+        } else {
+          const credNova = EmailAuthProvider.credential(u.email, novaSenha);
+          await linkWithCredential(u, credNova);
+        }
       }
 
       // Upsert no Firestore
       const ref = doc(db, 'usuarios', u.uid);
-      const dados = {
-        nome: nomeNovo,
-        fotoPerfil: fotoURL || null
-      };
+      const dados = { nome: nomeNovo, fotoPerfil: fotoURL || null };
       if (dataNascimento) dados.dataNascimento = dataNascimento;
-
       await setDoc(ref, dados, { merge: true });
 
-      setMensagem('Alterações salvas com sucesso!');
+      // Limpa sensíveis
+      setSenhaAtual('');
+      setNovaSenha('');
+      setConfirmNovaSenha('');
+
+      setMensagem(querSenha ? 'Senha definida/atualizada com sucesso!' : 'Alterações salvas com sucesso!');
       setTimeout(() => navigate('/perfil', { state: { voltarPara } }), 300);
-    } catch (error) {
-      console.error('Erro ao salvar perfil:', error);
-      setErro(mapearMensagemErro(error));
+
+    } catch (e) {
+      console.error(e);
+      setErro(mapearMensagemErro(e));
     } finally {
       setSalvando(false);
     }
   };
 
-  // ====== Exclusão de conta ======
+  // ===== Exclusão de conta =====
   const confirmarExclusao = async () => {
     setErroExcluir('');
     try {
       const u = auth.currentUser;
-      if (!u) throw new Error('auth/user-not-logged: Usuário não autenticado.');
-
+      if (!u) throw new Error('Usuário não autenticado.');
       const temPassword = (u.providerData || []).some(p => p.providerId === 'password');
 
       if (temPassword) {
@@ -256,8 +241,13 @@ export default function EditarPerfil() {
 
   return (
     <div className="container d-flex justify-content-center align-items-center py-5">
-      <div className="card p-4 shadow-sm" style={{ maxWidth: '480px', width: '100%' }}>
+      <div className="card p-4 shadow-sm" style={{ maxWidth: '520px', width: '100%' }}>
         <h4 className="mb-4 text-center">Editar Perfil</h4>
+
+        <div className="mb-2 small text-muted">
+          {/* Apenas informativo (sem botões) */}
+          <div><strong>E-mail da conta:</strong> {emailDaConta || '—'}</div>
+        </div>
 
         <div className="text-center mb-3">
           <img
@@ -293,7 +283,7 @@ export default function EditarPerfil() {
             />
           </div>
 
-          {/* Senha atual — OBRIGATÓRIA para contas com senha */}
+          {/* Senha atual — obrigatória para contas com senha */}
           {ehContaComSenha && (
             <div className="mb-3 position-relative">
               <input
@@ -314,14 +304,14 @@ export default function EditarPerfil() {
             </div>
           )}
 
-          {/* Nova senha (opcional) */}
+          {/* Nova senha + confirmar (opcionais) */}
           <div className="mb-3 position-relative">
             <input
               type={mostrarSenha ? 'text' : 'password'}
               className="form-control"
               value={novaSenha}
               onChange={(e) => setNovaSenha(e.target.value)}
-              placeholder="Nova senha (opcional)"
+              placeholder={ehContaComSenha ? 'Nova senha (opcional)' : 'Criar senha (opcional)'}
             />
             <button
               type="button"
@@ -330,6 +320,24 @@ export default function EditarPerfil() {
               style={{ backgroundColor: 'transparent', border: 'none' }}
             >
               <i className={`bi ${mostrarSenha ? 'bi-eye' : 'bi-eye-slash'}`} style={{ color: '#447EB8' }}></i>
+            </button>
+          </div>
+
+          <div className="mb-3 position-relative">
+            <input
+              type={mostrarConfirmSenha ? 'text' : 'password'}
+              className="form-control"
+              value={confirmNovaSenha}
+              onChange={(e) => setConfirmNovaSenha(e.target.value)}
+              placeholder="Confirmar nova senha"
+            />
+            <button
+              type="button"
+              className="position-absolute top-50 end-0 translate-middle-y me-2"
+              onClick={() => setMostrarConfirmSenha(!mostrarConfirmSenha)}
+              style={{ backgroundColor: 'transparent', border: 'none' }}
+            >
+              <i className={`bi ${mostrarConfirmSenha ? 'bi-eye' : 'bi-eye-slash'}`} style={{ color: '#447EB8' }}></i>
             </button>
           </div>
 
