@@ -81,10 +81,8 @@ function Chat() {
   }, []);
   const toggleSidebar = () => setSidebarOpen(v => !v);
   const chatBoxHeight = isMobile ? '56vh' : '62vh';
+  const backendUrl = import.meta.env.VITE_API_URL;
 
-  // 🔐 SEMPRE HTTPS e sem barra final
-  const backendUrl = (import.meta.env.VITE_API_URL || '').replace(/\/+$/,'');
-  
   const formatarDataCurta = (date) => {
     try {
       return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(date);
@@ -214,32 +212,20 @@ function Chat() {
 
   const finalizarQuestionario = async () => {
     setLoading(true);
-    await enqueueBot('Espere um instante, estou gerando sua análise...');
+    await enqueueBot('Espere uns minutos, a análise está sendo feita...');
     try {
       const resp = await fetch(`${backendUrl}/api/analise-perfil`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        mode: 'cors',
-        credentials: 'omit',
-        cache: 'no-store',
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chat_id: chatId, respostas })
       });
-
-      let data;
-      try { data = await resp.json(); } catch { data = null; }
-
-      if (!resp.ok) {
-        const msg = data?.analise || `Falha HTTP ${resp.status}`;
-        throw new Error(msg);
-      }
-
+      const data = await resp.json();
       await enqueueBot(`ETAPA 5 – SUGESTÕES E ANÁLISE DO PERFIL\n\n${data?.analise || 'Análise indisponível no momento.'}`);
       await salvarMensagem('resumo_final', data?.analise || 'Análise indisponível no momento.');
       setModo('ia');
       await enqueueBot('Agora você pode conversar livremente comigo. Para encerrar, digite "encerrar teste".');
     } catch (e) {
       console.error('Erro ao gerar análise:', e);
-      await enqueueBot(`Houve um erro ao gerar sua análise. ${e.message || ''}`);
+      await enqueueBot('Houve um erro ao gerar sua análise. Tente novamente em alguns instantes.');
     } finally { setLoading(false); }
   };
 
@@ -328,7 +314,7 @@ function Chat() {
 
       const msgsSnap = await getDocs(query(collection(db, 'chats', id, 'mensagens'), orderBy('timestamp', 'asc')));
       if (msgsSnap.empty) {
-        setMessages([]);
+        setMessages([]); // não deletar
         setModo('questionario'); setEtapaIndex(0); setPerguntaIndex(0);
         setRespostas([]);
         return;
@@ -363,26 +349,11 @@ function Chat() {
   const enviarParaIA = async (mensagem) => {
     try {
       const response = await fetch(`${backendUrl}/api/chat-vocacional`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        mode: 'cors',
-        credentials: 'omit',
-        cache: 'no-store',
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mensagem, respostas_anteriores: respostasAnterioresIA, chat_id: chatId })
       });
-
-      let payload;
-      try { payload = await response.json(); } catch { payload = null; }
-
-      if (!response.ok) {
-        const msg = payload?.resposta || `Falha HTTP ${response.status}`;
-        throw new Error(msg);
-      }
-      return payload;
-    } catch (error) {
-      console.error('Erro ao enviar para IA:', error);
-      return { resposta: `Houve um erro ao se conectar com a IA. ${error.message || ''}`, pergunta_aleatoria: null };
-    }
+      return await response.json();
+    } catch (error) { console.error('Erro ao enviar para IA:', error); return { resposta: 'Houve um erro ao se conectar com a IA.', pergunta_aleatoria: null }; }
   };
 
   const handleSend = async () => {
@@ -555,12 +526,18 @@ function Chat() {
             </h5>
 
             {(() => {
+              // total do questionário quando logado; senão, 1 para exibir barra "zerada"
               const total = isUserLoggedIn ? totalPerguntas : 1;
+
+              // regras de exibição:
+              // - deslogado: 0 de 1
+              // - logado e em IA (ou teste trancado/finalizado): total de total (100%)
+              // - caso normal: respostas atuais
               let resp;
               if (!isUserLoggedIn) {
                 resp = 0;
               } else if (modo === 'ia' || isTestEnded || respostas.length >= totalPerguntas) {
-                resp = total;
+                resp = total; // trava em 100%
               } else {
                 resp = respostas.length;
               }
@@ -590,6 +567,8 @@ function Chat() {
               );
             })()}
           </div>
+
+
 
           <div
             className="chat-box p-3"
@@ -623,35 +602,21 @@ function Chat() {
           )}
 
           <div className="d-flex mt-3">
-<textarea
-  ref={textareaRef}
-  className="form-control rounded-pill px-4 text-start"
-  placeholder={modo === 'questionario' ? 'Responda à pergunta...' : 'Digite algo...'}
-  value={input}
-  onChange={(e) => setInput(e.target.value)}
-  onKeyDown={handleKeyPress}
-  onInput={handleInput}
-  disabled={!chatId || loading || !isUserLoggedIn || isTestEnded}
-  rows={1}
-  style={{
-    border: '1px solid #ccc',
-    marginRight: '10px',
-    resize: 'none',
-    minHeight: '50px',
-    height: `${textareaHeight}px`,
-    paddingTop: '10px',
-    paddingBottom: '10px',
-    paddingLeft: '12px'
-  }}
-/>
-<button
-  className="btn btn-primary rounded-pill px-4"
-  onClick={handleSend}
-  disabled={!chatId || loading || !isUserLoggedIn || isTestEnded}
->
-  {loading ? 'Enviando...' : 'Enviar'}
-</button>
-
+            <textarea
+              ref={textareaRef}
+              className="form-control rounded-pill px-4 text-start"
+              placeholder={modo === 'questionario' ? 'Responda à pergunta...' : 'Digite algo...'}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyPress}
+              onInput={handleInput}
+              disabled={!chatId || loading || !isUserLoggedIn || isTestEnded}
+              rows={1}
+              style={{ border: '1px solid #ccc', marginRight: '10px', resize: 'none', minHeight: '50px', height: `${textareaHeight}px`, paddingTop: '10px', paddingBottom: '10px', paddingLeft: '12px' }}
+            />
+            <button className="btn btn-primary rounded-pill px-4" onClick={handleSend} disabled={!chatId || loading || !isUserLoggedIn || isTestEnded}>
+              {loading ? 'Enviando...' : 'Enviar'}
+            </button>
           </div>
         </div>
       </main>
