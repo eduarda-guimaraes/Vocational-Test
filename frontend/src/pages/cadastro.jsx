@@ -7,7 +7,7 @@ import {
   signOut
 } from 'firebase/auth';
 import { auth, db, provider } from '../services/firebase';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { useNavigate, Link } from 'react-router-dom';
 
 export default function Cadastro() {
@@ -30,6 +30,11 @@ export default function Cadastro() {
   const uploadParaCloudinary = async (file) => {
     const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
     const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+    if (!cloudName || !uploadPreset) {
+      throw new Error('Configuração do Cloudinary ausente (verifique VITE_CLOUDINARY_CLOUD_NAME e VITE_CLOUDINARY_UPLOAD_PRESET).');
+    }
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', uploadPreset);
@@ -61,41 +66,44 @@ export default function Cadastro() {
 
     if (!emailEhValido(email)) return setErro('Formato de email inválido.');
     if (senha !== confirmSenha) return setErro('As senhas não coincidem.');
-    if (!senhaEhForte(senha))
-      return setErro('A senha deve ter no mínimo 6 caracteres, com letras, números e símbolo.');
+    if (!senhaEhForte(senha)) return setErro('A senha deve ter no mínimo 6 caracteres, com letras, números e símbolo.');
     if (!dataNascimento) return setErro('A data de nascimento é obrigatória.');
 
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
       const usuario = userCredential.user;
 
+      // Envia verificação (mesmo que o chat não exija, manter alinhado ao fluxo atual)
       await sendEmailVerification(usuario);
 
+      // Upload opcional da foto
       let fotoURL = null;
       if (fotoFile) {
         fotoURL = await uploadParaCloudinary(fotoFile);
       }
 
+      // Shape padronizado
       await setDoc(doc(db, 'usuarios', usuario.uid), {
         nome,
         email,
-        dataNascimento,
-        fotoPerfil: fotoURL,
-        criadoEm: new Date(),
-        emailVerificado: false,
+        dataNascimento,           // string (yyyy-mm-dd)
+        foto: fotoURL ?? null,    // padronizado como "foto"
+        criadoEm: serverTimestamp(),
+        emailVerificado: false
       });
 
+      // Pequenas conveniências locais
       localStorage.setItem('nomeUsuario', nome);
       sessionStorage.setItem('emailTemp', email);
       sessionStorage.setItem('senhaTemp', senha);
 
       navigate('/aguardando-verificacao');
     } catch (err) {
-      console.error('Erro Firebase:', err.code);
-      if (err.code === 'auth/email-already-in-use') {
+      console.error('Erro Firebase:', err?.code || err);
+      if (err?.code === 'auth/email-already-in-use') {
         setErro('Este e-mail já está cadastrado. Faça login ou use outro e-mail.');
       } else {
-        setErro('Erro ao cadastrar. Tente novamente.');
+        setErro(err?.message || 'Erro ao cadastrar. Tente novamente.');
       }
     }
   };
@@ -106,6 +114,7 @@ export default function Cadastro() {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
+      // Impede conflito: se já existe método "password" no e-mail, força usar login por senha
       const methods = await fetchSignInMethodsForEmail(auth, user.email);
       if (methods.includes('password')) {
         setErro('Este e-mail já possui conta com senha. Faça login com email e senha.');
@@ -116,18 +125,28 @@ export default function Cadastro() {
       const userRef = doc(db, 'usuarios', user.uid);
       const userSnap = await getDoc(userRef);
 
+      // Grava/mescla com shape padronizado
       if (!userSnap.exists()) {
         await setDoc(userRef, {
           nome: user.displayName || '',
           email: user.email,
-          criadoEm: new Date(),
-          emailVerificado: user.emailVerified,
-          foto: user.photoURL || null,
+          dataNascimento: null,                 // padronizado mesmo quando não tem
+          foto: user.photoURL || null,          // padronizado como "foto"
+          criadoEm: serverTimestamp(),
+          emailVerificado: !!user.emailVerified
         });
+      } else {
+        // Garantir campos padronizados mesmo que já exista algo diferente
+        await setDoc(userRef, {
+          nome: user.displayName || userSnap.data().nome || '',
+          email: user.email,
+          foto: user.photoURL || userSnap.data().foto || null,
+          emailVerificado: !!user.emailVerified
+        }, { merge: true });
       }
 
       localStorage.setItem('nomeUsuario', user.displayName || '');
-      navigate('/definir-senha');
+      navigate('/definir-senha'); // ajuste se quiser ir direto ao perfil
     } catch (error) {
       console.error('Erro no login com Google:', error);
       setErro('Erro ao cadastrar com o Google. Tente novamente.');
@@ -141,6 +160,7 @@ export default function Cadastro() {
     >
       <div className="card p-4 shadow-sm" style={{ maxWidth: '400px', width: '100%' }}>
         <h2 className="mb-4 text-center" style={{ color: '#447EB8' }}>Criar Conta</h2>
+
         <form onSubmit={handleCadastro}>
           <div className="mb-3">
             <input
@@ -152,6 +172,7 @@ export default function Cadastro() {
               required
             />
           </div>
+
           <div className="mb-3">
             <input
               type="email"
@@ -162,6 +183,7 @@ export default function Cadastro() {
               required
             />
           </div>
+
           <div className="mb-3 position-relative">
             <input
               type={mostrarSenha ? 'text' : 'password'}
@@ -176,10 +198,12 @@ export default function Cadastro() {
               className="position-absolute top-50 end-0 translate-middle-y me-2"
               onClick={() => setMostrarSenha(!mostrarSenha)}
               style={{ backgroundColor: 'transparent', border: 'none' }}
+              aria-label="Mostrar/ocultar senha"
             >
               <i className={`bi ${mostrarSenha ? 'bi-eye' : 'bi-eye-slash'}`} style={{ color: '#447EB8' }}></i>
             </button>
           </div>
+
           <div className="mb-3 position-relative">
             <input
               type={mostrarConfirmSenha ? 'text' : 'password'}
@@ -194,10 +218,12 @@ export default function Cadastro() {
               className="position-absolute top-50 end-0 translate-middle-y me-2"
               onClick={() => setMostrarConfirmSenha(!mostrarConfirmSenha)}
               style={{ backgroundColor: 'transparent', border: 'none' }}
+              aria-label="Mostrar/ocultar confirmação de senha"
             >
               <i className={`bi ${mostrarConfirmSenha ? 'bi-eye' : 'bi-eye-slash'}`} style={{ color: '#447EB8' }}></i>
             </button>
           </div>
+
           <div className="mb-3">
             <input
               type="date"
