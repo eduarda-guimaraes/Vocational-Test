@@ -7,7 +7,7 @@ import {
   signOut
 } from 'firebase/auth';
 import { auth, db, provider } from '../services/firebase';
-import { collection, doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { useNavigate, Link } from 'react-router-dom';
 
 export default function Cadastro() {
@@ -22,9 +22,11 @@ export default function Cadastro() {
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [mostrarConfirmSenha, setMostrarConfirmSenha] = useState(false);
   const navigate = useNavigate();
+
   const emailEhValido = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const senhaEhForte = (senha) =>
     /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{6,}$/.test(senha);
+
   const uploadParaCloudinary = async (file) => {
     const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
     const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
@@ -40,7 +42,7 @@ export default function Cadastro() {
     if (!response.ok) throw new Error('Erro ao enviar imagem para o Cloudinary');
 
     const data = await response.json();
-    return data.secure_url; 
+    return data.secure_url;
   };
 
   const handleFotoChange = (e) => {
@@ -59,7 +61,8 @@ export default function Cadastro() {
 
     if (!emailEhValido(email)) return setErro('Formato de email inválido.');
     if (senha !== confirmSenha) return setErro('As senhas não coincidem.');
-    if (!senhaEhForte(senha)) return setErro('A senha deve ter no mínimo 6 caracteres, com letras, números e símbolo.');
+    if (!senhaEhForte(senha))
+      return setErro('A senha deve ter no mínimo 6 caracteres, com letras, números e símbolo.');
     if (!dataNascimento) return setErro('A data de nascimento é obrigatória.');
 
     try {
@@ -73,13 +76,13 @@ export default function Cadastro() {
         fotoURL = await uploadParaCloudinary(fotoFile);
       }
 
-      await setDoc(doc(db, "usuarios", usuario.uid), {
+      await setDoc(doc(db, 'usuarios', usuario.uid), {
         nome,
         email,
-        dataNascimento, 
-        fotoPerfil: fotoURL, 
+        dataNascimento,
+        fotoPerfil: fotoURL,
         criadoEm: new Date(),
-        emailVerificado: false, 
+        emailVerificado: false,
       });
 
       localStorage.setItem('nomeUsuario', nome);
@@ -110,7 +113,7 @@ export default function Cadastro() {
         return;
       }
 
-      const userRef = doc(db, "usuarios", user.uid);
+      const userRef = doc(db, 'usuarios', user.uid);
       const userSnap = await getDoc(userRef);
 
       if (!userSnap.exists()) {
@@ -124,7 +127,7 @@ export default function Cadastro() {
       }
 
       localStorage.setItem('nomeUsuario', user.displayName || '');
-      navigate('/definir-senha'); // ou '/perfil'
+      navigate('/definir-senha');
     } catch (error) {
       console.error('Erro no login com Google:', error);
       setErro('Erro ao cadastrar com o Google. Tente novamente.');
@@ -132,37 +135,115 @@ export default function Cadastro() {
   };
 
   return (
-    <div className="container d-flex justify-content-center align-items-center vh-100">
+    <div
+      className="container d-flex justify-content-center align-items-center py-5"
+      style={{ minHeight: '100vh' }}
+    >
       <div className="card p-4 shadow-sm" style={{ maxWidth: '400px', width: '100%' }}>
         <h2 className="mb-4 text-center" style={{ color: '#447EB8' }}>Criar Conta</h2>
         <form onSubmit={handleCadastro}>
           <div className="mb-3">
-            <input type="text" className="form-control" placeholder="Nome" value={nome} onChange={(e) => setNome(e.target.value)} required />
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Nome"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              required
+            />
           </div>
           <div className="mb-3">
-            <input type="email" className="form-control" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <input
+              type="email"
+              className="form-control"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
           </div>
           <div className="mb-3 position-relative">
-            <input type={mostrarSenha ? 'text' : 'password'} className="form-control" placeholder="Senha" value={senha} onChange={(e) => setSenha(e.target.value)} required />
-            <button type="button" className="position-absolute top-50 end-0 translate-middle-y me-2" onClick={() => setMostrarSenha(!mostrarSenha)} style={{ backgroundColor: 'transparent', border: 'none' }}>
+            <input
+              type={mostrarSenha ? 'text' : 'password'}
+              className="form-control"
+              placeholder="Senha"
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              required
+            />
+            <button
+              type="button"
+              className="position-absolute top-50 end-0 translate-middle-y me-2"
+              onClick={() => setMostrarSenha(!mostrarSenha)}
+              style={{ backgroundColor: 'transparent', border: 'none' }}
+            >
               <i className={`bi ${mostrarSenha ? 'bi-eye' : 'bi-eye-slash'}`} style={{ color: '#447EB8' }}></i>
             </button>
           </div>
           <div className="mb-3 position-relative">
-            <input type={mostrarConfirmSenha ? 'text' : 'password'} className="form-control" placeholder="Confirmar Senha" value={confirmSenha} onChange={(e) => setConfirmSenha(e.target.value)} required />
-            <button type="button" className="position-absolute top-50 end-0 translate-middle-y me-2" onClick={() => setMostrarConfirmSenha(!mostrarConfirmSenha)} style={{ backgroundColor: 'transparent', border: 'none' }}>
+            <input
+              type={mostrarConfirmSenha ? 'text' : 'password'}
+              className="form-control"
+              placeholder="Confirmar Senha"
+              value={confirmSenha}
+              onChange={(e) => setConfirmSenha(e.target.value)}
+              required
+            />
+            <button
+              type="button"
+              className="position-absolute top-50 end-0 translate-middle-y me-2"
+              onClick={() => setMostrarConfirmSenha(!mostrarConfirmSenha)}
+              style={{ backgroundColor: 'transparent', border: 'none' }}
+            >
               <i className={`bi ${mostrarConfirmSenha ? 'bi-eye' : 'bi-eye-slash'}`} style={{ color: '#447EB8' }}></i>
             </button>
           </div>
           <div className="mb-3">
-            <input type="date" className="form-control" placeholder="Data de Nascimento" value={dataNascimento} onChange={(e) => setDataNascimento(e.target.value)} required />
+            <input
+              type="date"
+              className="form-control"
+              value={dataNascimento}
+              onChange={(e) => setDataNascimento(e.target.value)}
+              required
+            />
           </div>
+
           <div className="mb-3">
-            <input type="file" className="form-control" accept="image/*" onChange={handleFotoChange} />
-            {fotoPreview && <img src={fotoPreview} alt="Preview" style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '50%', marginTop: '10px' }} />}
+            <label className="form-label fw-semibold" style={{ color: '#447EB8' }}>
+              Escolha sua foto de perfil
+            </label>
+            <input
+              type="file"
+              className="form-control"
+              accept="image/*"
+              onChange={handleFotoChange}
+            />
+            <div className="d-flex flex-column align-items-center mt-2">
+              <small className="text-muted text-center mb-3">
+                Selecione uma imagem nítida, de preferência com o rosto visível.
+              </small>
+              {fotoPreview && (
+                <img
+                  src={fotoPreview}
+                  alt="Preview"
+                  style={{
+                    width: '100px',
+                    height: '100px',
+                    objectFit: 'cover',
+                    borderRadius: '50%',
+                    border: '2px solid #447EB8',
+                    marginBottom: '20px'
+                  }}
+                />
+              )}
+            </div>
           </div>
+
           {erro && <p className="text-danger mb-3">{erro}</p>}
-          <button type="submit" className="btn w-100 mb-2" style={{ backgroundColor: '#447EB8', color: '#fff' }}>Cadastrar</button>
+
+          <button type="submit" className="btn w-100 mb-2" style={{ backgroundColor: '#447EB8', color: '#fff' }}>
+            Cadastrar
+          </button>
         </form>
 
         <button type="button" onClick={loginComGoogle} className="btn btn-outline-danger w-100 mb-3">
@@ -170,7 +251,9 @@ export default function Cadastro() {
         </button>
 
         <div className="text-center">
-          <Link to="/login" className="btn btn-link" style={{ color: '#447EB8' }}>Já tenho uma conta</Link>
+          <Link to="/login" className="btn btn-link" style={{ color: '#447EB8' }}>
+            Já tenho uma conta
+          </Link>
         </div>
       </div>
     </div>
