@@ -98,13 +98,11 @@ def normalizar_texto(s: str) -> str:
     return s
 
 def revisar_resposta(resposta: str) -> str:
-    # Mantém respostas objetivas e bem pontuadas, sem cortar o conteúdo do modelo.
     txt = (resposta or "").strip()
     if len(txt.split()) < 5:
         return "Desculpe, não consegui entender sua resposta completamente. Pode reformular em 1 ou 2 frases?"
     if not txt.endswith(('.', '!', '?')):
         txt += '.'
-    # Redirecionamento gentil se a pessoa disser que não sabe
     if 'não sei' in txt.lower() or 'nao sei' in txt.lower() or 'indeciso' in txt.lower():
         txt = "Sem problemas! Qual atividade do seu dia a dia você curte fazer e que te dá energia?"
     return txt
@@ -128,16 +126,11 @@ def montar_contexto_do_chat(chat_id: str) -> str:
     return "\n\n".join(blocos) if blocos else "Sem histórico suficiente."
 
 def montar_contexto_compacto(chat_id: str, max_pares: int = 8, max_chars: int = 3000) -> str:
-    """
-    Versão compacta do contexto: pega apenas os últimos N pares Q/A de 'respostas',
-    preservando a ordem cronológica e limitando o tamanho total.
-    """
     db = firestore.client()
     respostas_ref = db.collection('chats').document(chat_id).collection('respostas')
-
     snaps = list(respostas_ref.order_by('timestamp', direction=firestore.Query.DESCENDING).limit(max_pares).stream())
     pares = []
-    for doc in reversed(snaps):  # volta à ordem cronológica
+    for doc in reversed(snaps):
         d = doc.to_dict() or {}
         pergunta = (d.get('pergunta') or '').strip()
         resposta = (d.get('resposta') or '').strip()
@@ -146,10 +139,9 @@ def montar_contexto_compacto(chat_id: str, max_pares: int = 8, max_chars: int = 
             pares.append(f"[{etapa}] Q: {pergunta}\nA: {resposta}")
         else:
             pares.append(f"Q: {pergunta}\nA: {resposta}")
-
     contexto = "\n\n".join(pares).strip() or "Sem histórico suficiente."
     if len(contexto) > max_chars:
-        contexto = contexto[-max_chars:]  # mantém o final (as interações mais recentes)
+        contexto = contexto[-max_chars:]
     return contexto
 
 def is_greeting(texto: str) -> bool:
@@ -169,6 +161,41 @@ def gerar_frase_saudacao(texto: str) -> str:
     if "opa" in t or "eai" in t or "e aí" in t:
         return "Opa! 😄"
     return "Olá! 😊"
+
+# ---------- Helpers de entendimento curto ----------
+YES_SET = {"sim", "ja", "já", "aham", "uhum", "isso", "claro", "perfeito", "ok"}
+NO_SET  = {"nao", "não", "nunca", "ainda nao", "ainda não"}
+
+def eh_muito_curta(texto: str) -> bool:
+    t = normalizar_texto(texto)
+    return len(t.split()) <= 2 or len(t) <= 6
+
+def classificar_curta(texto: str) -> str | None:
+    t = normalizar_texto(texto)
+    if t in YES_SET:
+        return "yes"
+    if t in NO_SET:
+        return "no"
+    # casos como "já sim", "não ainda"
+    if any(w in t for w in ["ja", "já", "sim"]):
+        return "yes"
+    if any(w in t for w in ["nao", "não"]):
+        return "no"
+    return None
+
+def extrair_ultima_pergunta_da_ia(chat_id: str) -> str | None:
+    """Pega a última resposta da IA e extrai a ÚLTIMA frase interrogativa."""
+    db = firestore.client()
+    respostas_ref = db.collection('chats').document(chat_id).collection('respostas')
+    snaps = list(respostas_ref.order_by('timestamp', direction=firestore.Query.DESCENDING).limit(1).stream())
+    if not snaps:
+        return None
+    ultimo = snaps[0].to_dict() or {}
+    texto_ia = (ultimo.get('resposta') or '').strip()
+    if not texto_ia:
+        return None
+    perguntas = re.findall(r'[^?]*\?', texto_ia)
+    return perguntas[-1].strip() if perguntas else None
 
 # ---------- Intentos/FAQs ----------
 FAQ_TRIGGERS = [
@@ -219,13 +246,11 @@ def chat_vocacional():
         # FAQ: "o que é/sobre/como funciona + vocational test/vt"
         if eh_pergunta_sobre_vt(pergunta):
             salvar_resposta_firebase(chat_id, pergunta, ABOUT_VT_TEXT)
-            # Não incrementa contagem para não consumir interação do usuário
             return jsonify({"resposta": ABOUT_VT_TEXT, "pergunta_aleatoria": None})
 
-        # --- INÍCIO DA CONVERSA: se é saudação, responder com OI e depois fazer a pergunta contextual ---
+        # --- INÍCIO DA CONVERSA: saudação + pergunta contextual ---
         if kickoff:
             contexto = montar_contexto_do_chat(chat_id)
-            # Geramos apenas a PERGUNTA (sem cumprimentos) via modelo
             msgs = [
                 {"role": "system", "content":
                     "Você é um orientador vocacional. Gere UMA única pergunta curta e específica em PT-BR, "
@@ -241,16 +266,51 @@ def chat_vocacional():
                 temperature=0.6
             )
             pergunta_contextual = (response.choices[0].message.content or "").strip()
-
-            # Monta a saudação apropriada + a pergunta, numa mesma mensagem (1 bolha)
             saudacao = gerar_frase_saudacao(pergunta)
             resposta_final = f"{saudacao} {pergunta_contextual}"
-
-            # Não incrementamos contagem aqui (ainda não houve resposta do usuário)
             salvar_mensagem(chat_id, resposta_final, tipo="resposta")
             return jsonify({"resposta": resposta_final, "pergunta_aleatoria": None})
 
-        # --- Fluxo normal: agora COM CONTEXTO compacto e regras de aderência ---
+        # --- Tratamento de respostas muito curtas (sim/já | não/ainda não) ---
+        if eh_muito_curta(pergunta):
+            classe = classificar_curta(pergunta)
+            ultima_pergunta = extrair_ultima_pergunta_da_ia(chat_id)
+            if classe in {"yes", "no"} and ultima_pergunta:
+                if classe == "yes":
+                    # Aprofundar sem repetir a pergunta
+                    msgs = [
+                        {"role": "system", "content":
+                            "Você é um orientador vocacional. O usuário respondeu de forma MUITO curta "
+                            "('sim'/'já') à pergunta anterior. Gere UMA pergunta de aprofundamento específica, "
+                            "sem repetir a pergunta anterior, conectando com o contexto. PT-BR. 1 frase. Termine com '?'."},
+                        {"role": "user", "content":
+                            f"Pergunta anterior da IA: {ultima_pergunta}\n"
+                            f"Resposta curta do usuário: {pergunta}\n"
+                            f"Gere uma pergunta de aprofundamento concreta (ex.: 'Qual foi?', 'O que chamou sua atenção?', 'Onde foi?', 'Por quê?')."}
+                    ]
+                else:  # "no"
+                    msgs = [
+                        {"role": "system", "content":
+                            "Você é um orientador vocacional. O usuário respondeu de forma MUITO curta "
+                            "('não'/'ainda não') à pergunta anterior. Gere UMA pergunta alternativa que destrave o assunto, "
+                            "sem repetir a pergunta anterior, oferecendo um caminho prático. PT-BR. 1 frase. Termine com '?'."},
+                        {"role": "user", "content":
+                            f"Pergunta anterior da IA: {ultima_pergunta}\n"
+                            f"Resposta curta do usuário: {pergunta}\n"
+                            f"Gere uma pergunta que convide a detalhar obstáculos, preferências ou próximos passos práticos."}
+                    ]
+                r = client.chat.completions.create(
+                    model=AI_MODEL,
+                    messages=msgs,
+                    max_tokens=60,
+                    temperature=0.4
+                )
+                follow_up = (r.choices[0].message.content or "").strip()
+                chats_contagem_perguntas[chat_id] = contagem_atual + 1
+                salvar_resposta_firebase(chat_id, pergunta, follow_up)
+                return jsonify({"resposta": follow_up, "pergunta_aleatoria": None})
+
+        # --- Fluxo normal: COM CONTEXTO compacto e aderência ---
         contexto_compacto = montar_contexto_compacto(chat_id, max_pares=8, max_chars=3000)
 
         system_prompt = (
