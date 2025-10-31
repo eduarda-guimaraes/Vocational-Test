@@ -147,7 +147,7 @@ function Chat() {
 
   useEffect(() => {
     if (!userId) return;
-    cleanUpEmptyOldChats(userId); // roda 1x ao montar / mudar userId
+    cleanUpEmptyOldChats(userId); 
     const int = setInterval(() => cleanUpEmptyOldChats(userId), 10 * 60 * 1000); // a cada 10 min
     return () => clearInterval(int);
   }, [userId]); // eslint-disable-line
@@ -526,18 +526,13 @@ function Chat() {
             </h5>
 
             {(() => {
-              // total do questionário quando logado; senão, 1 para exibir barra "zerada"
               const total = isUserLoggedIn ? totalPerguntas : 1;
 
-              // regras de exibição:
-              // - deslogado: 0 de 1
-              // - logado e em IA (ou teste trancado/finalizado): total de total (100%)
-              // - caso normal: respostas atuais
               let resp;
               if (!isUserLoggedIn) {
                 resp = 0;
               } else if (modo === 'ia' || isTestEnded || respostas.length >= totalPerguntas) {
-                resp = total; // trava em 100%
+                resp = total; 
               } else {
                 resp = respostas.length;
               }

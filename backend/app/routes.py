@@ -1,6 +1,8 @@
 import os
 import random
 import uuid
+import re
+import unicodedata
 from flask import Blueprint, request, jsonify
 from firebase_admin import firestore 
 from openai import OpenAI
@@ -26,8 +28,19 @@ perguntas_aleatorias = [
 
 GREETINGS = {
     "oi", "ola", "olá", "bom dia", "boa tarde", "boa noite",
-    "hey", "hello", "hi", "iniciar", "começar", "start", "comecar"
+    "hey", "hello", "hi", "iniciar", "começar", "start", "comecar",
+    "opa", "eai", "e aí"
 }
+
+# Texto institucional para a FAQ "O que é o Vocational Test?"
+ABOUT_VT_TEXT = (
+    "O Vocational Test é uma plataforma que usa IA para ajudar jovens a descobrirem áreas e carreiras "
+    "mais compatíveis com seus interesses, valores e objetivos. Funciona em duas frentes: "
+    "(1) um **chat vocacional inteligente** que conduz perguntas curtas e contextuais para entender seu perfil; "
+    "e (2) **análises estruturadas** com recomendações de áreas e carreiras, caminhos de formação e próximos passos. "
+    "Você conversa, a IA aprende com suas respostas e gera um resumo final com indicações práticas. "
+    "Quer começar me contando uma atividade que você gosta de fazer no dia a dia?"
+)
 
 def gerar_pergunta_aleatoria():
     return random.choice(perguntas_aleatorias)
@@ -43,7 +56,7 @@ def salvar_mensagem(chat_id: str, conteudo: str, tipo: str = "resposta"):
     db = firestore.client()
     mensagens_ref = db.collection('chats').document(chat_id).collection('mensagens')
     mensagens_ref.add({
-        'tipo': tipo,  # 'pergunta' | 'resposta' | 'resumo_final' (no front vocês usam também)
+        'tipo': tipo,  # 'pergunta' | 'resposta' | 'resumo_final'
         'conteudo': conteudo,
         'timestamp': firestore.SERVER_TIMESTAMP
     })
@@ -70,17 +83,31 @@ def salvar_resultado_analise(chat_id: str, analise_texto: str, fonte: str = "ana
         'resultado': analise_texto,
         'timestamp': firestore.SERVER_TIMESTAMP
     })
-    salvar_mensagem(chat_id, analise_texto, tipo="resposta")
+    salvar_mensagem(chat_id, analise_texto, tipo="resumo_final" if "resumo" in (fonte or "") else "resposta")
 
 # ---------- Utilidades ----------
+def _strip_accents(s: str) -> str:
+    if not s:
+        return ""
+    return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+
+def normalizar_texto(s: str) -> str:
+    s = (s or "").strip().lower()
+    s = _strip_accents(s)
+    s = re.sub(r"\s+", " ", s)
+    return s
+
 def revisar_resposta(resposta: str) -> str:
-    if len(resposta.split()) < 5:
-        return "Desculpe, não consegui entender sua resposta completamente. Pode reformular?"
-    if not resposta.endswith(('.', '!', '?')):
-        resposta += '.'
-    if 'não sei' in resposta.lower() or 'indeciso' in resposta.lower():
-        resposta = "Sem problemas! Que tipo de atividades você gosta de fazer no seu tempo livre?"
-    return resposta
+    # Mantém respostas objetivas e bem pontuadas, sem cortar o conteúdo do modelo.
+    txt = (resposta or "").strip()
+    if len(txt.split()) < 5:
+        return "Desculpe, não consegui entender sua resposta completamente. Pode reformular em 1 ou 2 frases?"
+    if not txt.endswith(('.', '!', '?')):
+        txt += '.'
+    # Redirecionamento gentil se a pessoa disser que não sabe
+    if 'não sei' in txt.lower() or 'nao sei' in txt.lower() or 'indeciso' in txt.lower():
+        txt = "Sem problemas! Qual atividade do seu dia a dia você curte fazer e que te dá energia?"
+    return txt
 
 def montar_contexto_do_chat(chat_id: str) -> str:
     db = firestore.client()
@@ -108,7 +135,6 @@ def montar_contexto_compacto(chat_id: str, max_pares: int = 8, max_chars: int = 
     db = firestore.client()
     respostas_ref = db.collection('chats').document(chat_id).collection('respostas')
 
-    # Buscar os últimos max_pares em ordem decrescente e depois inverter
     snaps = list(respostas_ref.order_by('timestamp', direction=firestore.Query.DESCENDING).limit(max_pares).stream())
     pares = []
     for doc in reversed(snaps):  # volta à ordem cronológica
@@ -127,8 +153,39 @@ def montar_contexto_compacto(chat_id: str, max_pares: int = 8, max_chars: int = 
     return contexto
 
 def is_greeting(texto: str) -> bool:
-    t = (texto or "").strip().lower()
+    t = normalizar_texto(texto)
     return t in GREETINGS
+
+def gerar_frase_saudacao(texto: str) -> str:
+    t = normalizar_texto(texto)
+    if "bom dia" in t:
+        return "Bom dia! 😊"
+    if "boa tarde" in t:
+        return "Boa tarde! 😊"
+    if "boa noite" in t:
+        return "Boa noite! 😊"
+    if "hello" in t or "hi" in t or "hey" in t:
+        return "Hello! 👋"
+    if "opa" in t or "eai" in t or "e aí" in t:
+        return "Opa! 😄"
+    return "Olá! 😊"
+
+# ---------- Intentos/FAQs ----------
+FAQ_TRIGGERS = [
+    r"\bo que e\b",
+    r"\bsobre\b",
+    r"\bcomo funciona\b",
+    r"\bquem sao voces\b",
+    r"\bquem e voces\b"
+]
+VT_TRIGGERS = [
+    r"\bvocational test\b",
+    r"\bvt\b"
+]
+
+def eh_pergunta_sobre_vt(texto: str) -> bool:
+    t = normalizar_texto(texto)
+    return any(re.search(p, t) for p in FAQ_TRIGGERS) and any(re.search(v, t) for v in VT_TRIGGERS)
 
 # ---------- Endpoints ----------
 @main.route('/api/chat-vocacional', methods=['POST'])
@@ -137,7 +194,7 @@ def chat_vocacional():
     pergunta = data.get('mensagem', '') or ''
     chat_id = data.get('chat_id', gerar_chat_id())
 
-    ENCERRAR = 'encerrar teste' in pergunta.strip().lower()
+    ENCERRAR = 'encerrar teste' in normalizar_texto(pergunta)
     contagem_atual = chats_contagem_perguntas.get(chat_id, 0)
     kickoff = (contagem_atual == 0) and (pergunta.strip() == '' or is_greeting(pergunta))
 
@@ -159,10 +216,16 @@ def chat_vocacional():
             salvar_resultado_analise(chat_id, resumo, fonte="resumo-final-chat")
             return jsonify({"resposta": resumo, "finalizado": True, "pergunta_aleatoria": None})
 
-        # --- INÍCIO DA CONVERSA LIVRE: gerar pergunta contextual (sem "Olá") ---
+        # FAQ: "o que é/sobre/como funciona + vocational test/vt"
+        if eh_pergunta_sobre_vt(pergunta):
+            salvar_resposta_firebase(chat_id, pergunta, ABOUT_VT_TEXT)
+            # Não incrementa contagem para não consumir interação do usuário
+            return jsonify({"resposta": ABOUT_VT_TEXT, "pergunta_aleatoria": None})
+
+        # --- INÍCIO DA CONVERSA: se é saudação, responder com OI e depois fazer a pergunta contextual ---
         if kickoff:
-            # usa histórico completo do questionário + eventuais pares já salvos
             contexto = montar_contexto_do_chat(chat_id)
+            # Geramos apenas a PERGUNTA (sem cumprimentos) via modelo
             msgs = [
                 {"role": "system", "content":
                     "Você é um orientador vocacional. Gere UMA única pergunta curta e específica em PT-BR, "
@@ -177,34 +240,46 @@ def chat_vocacional():
                 max_tokens=60,
                 temperature=0.6
             )
-            pergunta_contextual = response.choices[0].message.content.strip()
+            pergunta_contextual = (response.choices[0].message.content or "").strip()
+
+            # Monta a saudação apropriada + a pergunta, numa mesma mensagem (1 bolha)
+            saudacao = gerar_frase_saudacao(pergunta)
+            resposta_final = f"{saudacao} {pergunta_contextual}"
 
             # Não incrementamos contagem aqui (ainda não houve resposta do usuário)
-            salvar_mensagem(chat_id, pergunta_contextual, tipo="resposta")
-            return jsonify({"resposta": pergunta_contextual, "pergunta_aleatoria": None})
+            salvar_mensagem(chat_id, resposta_final, tipo="resposta")
+            return jsonify({"resposta": resposta_final, "pergunta_aleatoria": None})
 
-        # --- Fluxo normal: agora COM CONTEXTO compacto ---
+        # --- Fluxo normal: agora COM CONTEXTO compacto e regras de aderência ---
         contexto_compacto = montar_contexto_compacto(chat_id, max_pares=8, max_chars=3000)
+
+        system_prompt = (
+            "Você é um assistente vocacional objetivo e educado. Responda em PT-BR com 1–3 frases claras, "
+            "SEM cumprimentos. Primeiro, espelhe 2–3 palavras do que a pessoa acabou de dizer (para mostrar entendimento), "
+            "em seguida avance com a ideia principal. Se a nova mensagem estiver fora do tema do contexto, "
+            "redirecione gentilmente para interesses, valores, objetivos ou limitações já citados. "
+            "Evite repetir perguntas já feitas. Sempre finalize com UMA pergunta curta e específica para avançar a conversa."
+        )
+
+        user_prompt = (
+            f"Contexto (últimas interações de pergunta e resposta):\n{contexto_compacto}\n\n"
+            f"Nova mensagem do usuário: {pergunta}\n\n"
+            "Regra: mantenha a conversa no mesmo assunto, conectando explicitamente a resposta ao contexto acima."
+        )
+
         mensagens_completas = [
-            {"role": "system", "content":
-                "Você é um assistente vocacional objetivo e educado. Responda em PT-BR, com 1–3 frases claras, "
-                "SEM cumprimentos do tipo 'Olá' ou 'Como posso ajudar'. "
-                "Sempre finalize com UMA pergunta curta e específica para avançar a conversa."
-            },
-            {"role": "user", "content":
-                f"Contexto (últimas interações de pergunta e resposta):\n{contexto_compacto}\n\n"
-                f"Nova mensagem do usuário: {pergunta}\n\n"
-                f"Considere o contexto para manter o assunto e evite repetir perguntas já feitas."}
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
         ]
 
         response = client.chat.completions.create(
             model=AI_MODEL,
             messages=mensagens_completas,
-            max_tokens=160,
+            max_tokens=180,
             temperature=0.7
         )
 
-        conteudo = response.choices[0].message.content.strip()
+        conteudo = (response.choices[0].message.content or "").strip()
         conteudo = revisar_resposta(conteudo)
 
         # Persistência + contagem
@@ -224,7 +299,7 @@ def chat_vocacional():
                 max_tokens=320,
                 temperature=0.6
             )
-            resumo = r2.choices[0].message.content.strip()
+            resumo = (r2.choices[0].message.content or "").strip()
             salvar_resultado_analise(chat_id, resumo, fonte="resumo-final-automatico")
             return jsonify({"resposta": resumo, "finalizado": True, "pergunta_aleatoria": None})
 
@@ -280,7 +355,7 @@ def analise_perfil():
             temperature=0.6
         )
 
-        analise = response.choices[0].message.content.strip()
+        analise = (response.choices[0].message.content or "").strip()
         salvar_resultado_analise(chat_id, analise, fonte="analise-perfil")
 
         return jsonify({"analise": analise})
