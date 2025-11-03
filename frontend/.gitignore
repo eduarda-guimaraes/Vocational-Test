@@ -1,5 +1,18 @@
 # node modules
+# Ignorar dependências
 node_modules/
+**/node_modules/
+
+# Ignorar locks (opcional, se não quiser versionar)
+package-lock.json
+**/package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Ignorar ambiente
+.env
+.env.*
+
 
 # arquivos de build (caso você use vite build)
 dist/
