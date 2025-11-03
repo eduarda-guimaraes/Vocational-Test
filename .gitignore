@@ -1,7 +1,20 @@
 __pycache__/
 *.pyc
 # Dependências
+# Ignorar dependências
 node_modules/
+**/node_modules/
+
+# Ignorar locks (opcional, se não quiser versionar)
+package-lock.json
+**/package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Ignorar ambiente
+.env
+.env.*
+
 
 # Builds
 dist/
