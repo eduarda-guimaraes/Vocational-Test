@@ -613,6 +613,21 @@ function Chat() {
               {loading ? 'Enviando...' : 'Enviar'}
             </button>
           </div>
+          {/* 🔹 Formulário de Usabilidade abaixo do chat */}
+<div className="text-center mt-4 mb-4">
+  <p className="fw-semibold" style={{ color: '#20639B' }}>
+    Gostou do teste? Deixe sua opinião!
+  </p>
+  <a
+    href="https://docs.google.com/forms/d/e/1FAIpQLScHNwOh65Fdpw9FFvtb8C0t_iWGOmjV9ZwOMR3Lh577lUe0sg/viewform?usp=sharing&ouid=106872356769360772854"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="btn btn-outline-primary rounded-pill px-4"
+  >
+    Acessar Formulário de Usabilidade
+  </a>
+</div>
+
         </div>
       </main>
 
