@@ -22,7 +22,7 @@ export default function AguardandoVerificacao() {
         await user.reload();
 
         if (user.emailVerified) {
-          navigate('/perfil');
+          navigate('/chat');
         } else {
           setMensagem('Seu e-mail ainda não foi verificado.');
           const interval = setInterval(async () => {
@@ -30,7 +30,7 @@ export default function AguardandoVerificacao() {
             if (user.emailVerified) {
               clearInterval(interval);
               setMensagem('Email verificado com sucesso! Redirecionando...');
-              setTimeout(() => navigate('/perfil'), 1500);
+              setTimeout(() => navigate('/chat'), 1500);
             }
           }, 5000);
           return () => clearInterval(interval);
@@ -55,7 +55,7 @@ export default function AguardandoVerificacao() {
 
       if (user.emailVerified) {
         setMensagem('Este e-mail já foi verificado. Redirecionando...');
-        setTimeout(() => navigate('/perfil'), 2000);
+        setTimeout(() => navigate('/chat'), 2000);
         return;
       }
 
