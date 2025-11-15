@@ -16,9 +16,7 @@ export default function Login() {
 
     try {
       const cred = await signInWithEmailAndPassword(auth, email, senha);
-      // Não bloqueia por verificação de e-mail (política atual do projeto)
-      // Se quiser direcionar para outra rota pós-login, ajuste aqui
-      navigate('/perfil');
+      navigate('/chat');
     } catch (err) {
       console.error('Erro no login:', err);
       let msg = 'Não foi possível entrar. ';
@@ -46,7 +44,7 @@ export default function Login() {
   const loginComGoogle = async () => {
     try {
       await signInWithPopup(auth, provider);
-      navigate('/perfil');
+      navigate('/chat');
     } catch (error) {
       console.error(error);
       setErro('Erro ao fazer login com o Google.');

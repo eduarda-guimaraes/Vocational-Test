@@ -33,7 +33,7 @@ export default function DefinirSenha() {
     try {
       await updatePassword(auth.currentUser, senha);
       setMensagem('Senha definida com sucesso!');
-      setTimeout(() => navigate('/perfil'), 1500);
+      setTimeout(() => navigate('/chat'), 1500);
     } catch (error) {
       console.error('Erro ao definir senha:', error);
       setErro('Não foi possível definir a senha. Faça login novamente.');
@@ -41,7 +41,7 @@ export default function DefinirSenha() {
   };
 
   const pularEtapa = () => {
-    navigate('/perfil');
+    navigate('/chat');
   };
 
   return (
