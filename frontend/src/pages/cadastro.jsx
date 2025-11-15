@@ -224,14 +224,26 @@ export default function Cadastro() {
             </button>
           </div>
 
+          {/* Campo de Data de Nascimento com label e ajuda visível */}
           <div className="mb-3">
+            <label
+              htmlFor="dataNascimento"
+              className="form-label fw-semibold"
+              style={{ color: '#447EB8' }}
+            >
+              Data de nascimento
+            </label>
             <input
+              id="dataNascimento"
               type="date"
               className="form-control"
               value={dataNascimento}
               onChange={(e) => setDataNascimento(e.target.value)}
               required
             />
+            <small className="form-text text-muted">
+              Toque no campo para abrir o calendário e selecione sua data de nascimento.
+            </small>
           </div>
 
           <div className="mb-3">
@@ -245,7 +257,7 @@ export default function Cadastro() {
               onChange={handleFotoChange}
             />
             <div className="d-flex flex-column align-items-center mt-2">
-              <small className="text-muted text-center mb-3">
+              <small className="form-text text-muted">
                 Selecione uma imagem nítida, de preferência com o rosto visível.
               </small>
               {fotoPreview && (
