@@ -47,7 +47,9 @@ export default function EditarPerfil() {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
   const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
-  const ehContaComSenha = (auth.currentUser?.providerData || []).some(p => p.providerId === 'password');
+  const ehContaComSenha = (auth.currentUser?.providerData || []).some(
+    (p) => p.providerId === 'password'
+  );
   const ehContaGoogleSemSenha = !ehContaComSenha; // sem 'password' => Google-only
 
   useEffect(() => {
@@ -62,7 +64,9 @@ export default function EditarPerfil() {
         const snap = await getDoc(ref);
         if (snap.exists()) {
           const dados = snap.data();
-          if (!nome && (u.displayName || dados.nome)) setNome(u.displayName || dados.nome || '');
+          if (!nome && (u.displayName || dados.nome)) {
+            setNome(u.displayName || dados.nome || '');
+          }
           if (dados.dataNascimento) setDataNascimento(dados.dataNascimento);
           if (!u.photoURL && dados.fotoPerfil) setFotoPreview(dados.fotoPerfil);
         }
@@ -75,7 +79,8 @@ export default function EditarPerfil() {
 
   // ===== Helpers =====
   const senhaEhForte = (valor) =>
-    !valor || /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{6,}$/.test(valor);
+    !valor ||
+    /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{6,}$/.test(valor);
 
   const dataValida = (valor) => {
     if (!valor) return true;
@@ -112,13 +117,18 @@ export default function EditarPerfil() {
     if (!cloudName || !uploadPreset) throw new Error('Cloudinary não configurado.');
     if (!file.type?.startsWith('image/')) throw new Error('Selecione um arquivo de imagem válido.');
     const LIMITE_MB = 5;
-    if (file.size > LIMITE_MB * 1024 * 1024) throw new Error(`Imagem muito grande. Máximo ${LIMITE_MB}MB.`);
+    if (file.size > LIMITE_MB * 1024 * 1024) {
+      throw new Error(`Imagem muito grande. Máximo ${LIMITE_MB}MB.`);
+    }
 
     const form = new FormData();
     form.append('file', file);
     form.append('upload_preset', uploadPreset);
 
-    const resp = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: form });
+    const resp = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+      { method: 'POST', body: form }
+    );
     if (!resp.ok) throw new Error(`Falha no upload (HTTP ${resp.status}).`);
     const data = await resp.json();
     if (!data?.secure_url) throw new Error('Resposta do Cloudinary sem secure_url.');
@@ -128,7 +138,9 @@ export default function EditarPerfil() {
   const handleFotoChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) return setErro('Selecione um arquivo de imagem válido.');
+    if (!file.type.startsWith('image/')) {
+      return setErro('Selecione um arquivo de imagem válido.');
+    }
     const reader = new FileReader();
     reader.onloadend = () => setFotoPreview(reader.result);
     reader.readAsDataURL(file);
@@ -151,9 +163,17 @@ export default function EditarPerfil() {
       const querSenha = !!novaSenha;
 
       // Validações simples
-      if (!dataValida(dataNascimento)) throw new Error('Data de nascimento inválida.');
-      if (!senhaEhForte(novaSenha)) throw new Error('A nova senha deve ter 6+ caracteres, letras, números e símbolo.');
-      if (querSenha && novaSenha !== confirmNovaSenha) throw new Error('A confirmação da nova senha não confere.');
+      if (!dataValida(dataNascimento)) {
+        throw new Error('Data de nascimento inválida.');
+      }
+      if (!senhaEhForte(novaSenha)) {
+        throw new Error(
+          'A nova senha deve ter 6+ caracteres, letras, números e símbolo.'
+        );
+      }
+      if (querSenha && novaSenha !== confirmNovaSenha) {
+        throw new Error('A confirmação da nova senha não confere.');
+      }
 
       // Regras por tipo de conta
       if (ehContaComSenha) {
@@ -171,7 +191,9 @@ export default function EditarPerfil() {
         await u.reload();
         if (!u.emailVerified) {
           await sendEmailVerification(u);
-          throw new Error('Enviei um link de verificação para seu e-mail. Confirme e, depois, clique em Salvar novamente.');
+          throw new Error(
+            'Enviei um link de verificação para seu e-mail. Confirme e, depois, clique em Salvar novamente.'
+          );
         }
         // 2) Reautentica via popup do Google
         await reauthenticateWithPopup(u, provider);
@@ -205,9 +227,12 @@ export default function EditarPerfil() {
       setNovaSenha('');
       setConfirmNovaSenha('');
 
-      setMensagem(querSenha ? 'Senha definida/atualizada com sucesso!' : 'Alterações salvas com sucesso!');
+      setMensagem(
+        querSenha
+          ? 'Senha definida/atualizada com sucesso!'
+          : 'Alterações salvas com sucesso!'
+      );
       setTimeout(() => navigate('/perfil', { state: { voltarPara } }), 300);
-
     } catch (e) {
       console.error(e);
       setErro(mapearMensagemErro(e));
@@ -222,7 +247,9 @@ export default function EditarPerfil() {
     try {
       const u = auth.currentUser;
       if (!u) throw new Error('Usuário não autenticado.');
-      const temPassword = (u.providerData || []).some(p => p.providerId === 'password');
+      const temPassword = (u.providerData || []).some(
+        (p) => p.providerId === 'password'
+      );
 
       if (temPassword) {
         const cred = EmailAuthProvider.credential(u.email, senhaExcluir);
@@ -241,24 +268,53 @@ export default function EditarPerfil() {
 
   return (
     <div className="container d-flex justify-content-center align-items-center py-5">
-      <div className="card p-4 shadow-sm" style={{ maxWidth: '520px', width: '100%' }}>
+      <div
+        className="card p-4 shadow-sm"
+        style={{ maxWidth: '520px', width: '100%' }}
+      >
         <h4 className="mb-4 text-center">Editar Perfil</h4>
 
         <div className="mb-2 small text-muted">
-          {/* Apenas informativo (sem botões) */}
-          <div><strong>E-mail da conta:</strong> {emailDaConta || '—'}</div>
+          <div>
+            <strong>E-mail da conta:</strong> {emailDaConta || '—'}
+          </div>
         </div>
 
-        <div className="text-center mb-3">
-          <img
-            src={fotoPreview}
-            alt="Foto de perfil"
-            style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #447eb8' }}
-          />
+       <div className="mb-2">
+          <label
+            className="form-label fw-semibold mb-2"
+            style={{ color: '#447EB8' }}
+          >
+            Foto de perfil
+          </label>
+
+          <div className="d-flex flex-column align-items-center">
+            <img
+              src={fotoPreview}
+              alt="Foto de perfil"
+              style={{
+                width: '100px',
+                height: '100px',
+                borderRadius: '50%',
+                objectFit: 'cover',
+                border: '3px solid #447eb8',
+                marginBottom: '8px'
+              }}
+            />
+
+            <small className="text-muted mb-2">
+              Escolha uma imagem nítida, de preferência com o rosto visível.
+            </small>
+          </div>
         </div>
 
         <div className="mb-3">
-          <input type="file" className="form-control" accept="image/*" onChange={handleFotoChange} />
+          <input
+            type="file"
+            className="form-control"
+            accept="image/*"
+            onChange={handleFotoChange}
+          />
         </div>
 
         <form onSubmit={handleSalvar}>
@@ -274,13 +330,24 @@ export default function EditarPerfil() {
           </div>
 
           <div className="mb-3">
+            <label
+              htmlFor="dataNascimento"
+              className="form-label fw-semibold"
+              style={{ color: '#447EB8' }}
+            >
+              Data de nascimento
+            </label>
             <input
+              id="dataNascimento"
               type="date"
               className="form-control"
               value={dataNascimento}
               onChange={(e) => setDataNascimento(e.target.value)}
-              placeholder="Data de Nascimento"
             />
+            <small className="form-text text-muted">
+              Toque no campo para abrir o calendário e ajustar sua data de
+              nascimento.
+            </small>
           </div>
 
           {/* Senha atual — obrigatória para contas com senha */}
@@ -299,7 +366,12 @@ export default function EditarPerfil() {
                 onClick={() => setMostrarSenhaAtual(!mostrarSenhaAtual)}
                 style={{ backgroundColor: 'transparent', border: 'none' }}
               >
-                <i className={`bi ${mostrarSenhaAtual ? 'bi-eye' : 'bi-eye-slash'}`} style={{ color: '#447EB8' }}></i>
+                <i
+                  className={`bi ${
+                    mostrarSenhaAtual ? 'bi-eye' : 'bi-eye-slash'
+                  }`}
+                  style={{ color: '#447EB8' }}
+                ></i>
               </button>
             </div>
           )}
@@ -311,7 +383,11 @@ export default function EditarPerfil() {
               className="form-control"
               value={novaSenha}
               onChange={(e) => setNovaSenha(e.target.value)}
-              placeholder={ehContaComSenha ? 'Nova senha (opcional)' : 'Criar senha (opcional)'}
+              placeholder={
+                ehContaComSenha
+                  ? 'Nova senha (opcional)'
+                  : 'Criar senha (opcional)'
+              }
             />
             <button
               type="button"
@@ -319,7 +395,10 @@ export default function EditarPerfil() {
               onClick={() => setMostrarSenha(!mostrarSenha)}
               style={{ backgroundColor: 'transparent', border: 'none' }}
             >
-              <i className={`bi ${mostrarSenha ? 'bi-eye' : 'bi-eye-slash'}`} style={{ color: '#447EB8' }}></i>
+              <i
+                className={`bi ${mostrarSenha ? 'bi-eye' : 'bi-eye-slash'}`}
+                style={{ color: '#447EB8' }}
+              ></i>
             </button>
           </div>
 
@@ -337,11 +416,20 @@ export default function EditarPerfil() {
               onClick={() => setMostrarConfirmSenha(!mostrarConfirmSenha)}
               style={{ backgroundColor: 'transparent', border: 'none' }}
             >
-              <i className={`bi ${mostrarConfirmSenha ? 'bi-eye' : 'bi-eye-slash'}`} style={{ color: '#447EB8' }}></i>
+              <i
+                className={`bi ${
+                  mostrarConfirmSenha ? 'bi-eye' : 'bi-eye-slash'
+                }`}
+                style={{ color: '#447EB8' }}
+              ></i>
             </button>
           </div>
 
-          {erro && <p className="text-danger" style={{ whiteSpace: 'pre-wrap' }}>{erro}</p>}
+          {erro && (
+            <p className="text-danger" style={{ whiteSpace: 'pre-wrap' }}>
+              {erro}
+            </p>
+          )}
           {mensagem && <p className="text-success">{mensagem}</p>}
 
           <button
@@ -364,17 +452,28 @@ export default function EditarPerfil() {
 
         <hr />
 
-        <button className="btn btn-outline-danger w-100 mt-2" onClick={() => setShowModalExcluir(true)}>
+        <button
+          className="btn btn-outline-danger w-100 mt-2"
+          onClick={() => setShowModalExcluir(true)}
+        >
           Excluir Conta
         </button>
 
         {showModalExcluir && (
-          <div className="modal d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div
+            className="modal d-block"
+            tabIndex="-1"
+            style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          >
             <div className="modal-dialog modal-dialog-centered">
               <div className="modal-content">
                 <div className="modal-header">
                   <h5 className="modal-title">Confirmar Exclusão</h5>
-                  <button type="button" className="btn-close" onClick={() => setShowModalExcluir(false)}></button>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    onClick={() => setShowModalExcluir(false)}
+                  ></button>
                 </div>
                 <div className="modal-body">
                   {ehContaComSenha ? (
@@ -391,21 +490,53 @@ export default function EditarPerfil() {
                         <button
                           type="button"
                           className="position-absolute top-50 end-0 translate-middle-y me-2"
-                          onClick={() => setMostrarSenhaExcluir((prev) => !prev)}
-                          style={{ backgroundColor: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}
+                          onClick={() =>
+                            setMostrarSenhaExcluir((prev) => !prev)
+                          }
+                          style={{
+                            backgroundColor: 'transparent',
+                            border: 'none',
+                            padding: 0,
+                            cursor: 'pointer'
+                          }}
                         >
-                          <i className={`bi ${mostrarSenhaExcluir ? 'bi-eye' : 'bi-eye-slash'}`} style={{ color: '#447EB8' }}></i>
+                          <i
+                            className={`bi ${
+                              mostrarSenhaExcluir ? 'bi-eye' : 'bi-eye-slash'
+                            }`}
+                            style={{ color: '#447EB8' }}
+                          ></i>
                         </button>
                       </div>
                     </>
                   ) : (
-                    <p>Você será reautenticado(a) com o Google antes de excluir sua conta.</p>
+                    <p>
+                      Você será reautenticado(a) com o Google antes de excluir
+                      sua conta.
+                    </p>
                   )}
-                  {erroExcluir && <p className="text-danger mt-2" style={{ whiteSpace: 'pre-wrap' }}>{erroExcluir}</p>}
+                  {erroExcluir && (
+                    <p
+                      className="text-danger mt-2"
+                      style={{ whiteSpace: 'pre-wrap' }}
+                    >
+                      {erroExcluir}
+                    </p>
+                  )}
                 </div>
                 <div className="modal-footer">
-                  <button className="btn btn-secondary" onClick={() => setShowModalExcluir(false)}>Cancelar</button>
-                  <button className="btn btn-danger" onClick={confirmarExclusao}>Confirmar Exclusão</button>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => setShowModalExcluir(false)}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    className="btn btn-danger"
+                    onClick={confirmarExclusao}
+                  >
+                    Confirmar Exclusão
+                  </button>
                 </div>
               </div>
             </div>
